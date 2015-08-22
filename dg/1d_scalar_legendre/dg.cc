@@ -56,6 +56,7 @@ struct Parameter
    TestCase test_case;
    unsigned int n_cells;
    unsigned int nstep;
+   unsigned int output_step;
    LimiterType limiter_type;
    FluxType flux_type;
 };
@@ -282,6 +283,7 @@ private:
    LimiterType          limiter_type;
    FluxType             flux_type;
    unsigned int         nstep;
+   unsigned int         output_step;
    
    
    Triangulation<dim>   triangulation;
@@ -318,6 +320,7 @@ ScalarProblem<dim>::ScalarProblem (Parameter param,
     limiter_type (param.limiter_type),
     flux_type (param.flux_type),
     nstep (param.nstep),
+    output_step (param.output_step),
     fe (param.degree),
     dof_handler (triangulation)
 {
@@ -929,7 +932,7 @@ void ScalarProblem<dim>::solve ()
        
       time += dt;
       ++iter;
-       if(iter % 100 == 0) output_results (time);
+       if(iter % output_step == 0) output_results (time);
        
        if(debug)
       std::cout << "Iter = " << iter << " time = " << time 
@@ -1030,6 +1033,7 @@ int main ()
        param.degree       = 1;
        param.n_cells      = 50;
        param.nstep        = 1;
+       param.output_step  = 10;
        param.test_case    = sine;
        param.cfl          = 0.9/(2.0*param.degree+1.0);
        param.final_time   = 10;
