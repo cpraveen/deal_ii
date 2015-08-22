@@ -19,48 +19,48 @@
 //
 // Works only on square cartesian cells
 
-#include <base/quadrature_lib.h>
-#include <base/function.h>
-#include <base/timer.h>
-#include <base/utilities.h>
-#include <base/conditional_ostream.h>
-#include <base/index_set.h>
+#include <deal.II/base/quadrature_lib.h>
+#include <deal.II/base/function.h>
+#include <deal.II/base/timer.h>
+#include <deal.II/base/utilities.h>
+#include <deal.II/base/conditional_ostream.h>
+#include <deal.II/base/index_set.h>
 
-#include <grid/tria.h>
-#include <grid/grid_generator.h>
-#include <grid/grid_out.h>
-#include <grid/grid_refinement.h>
-#include <grid/tria_accessor.h>
-#include <grid/tria_iterator.h>
-#include <grid/grid_tools.h>
+#include <deal.II/grid/tria.h>
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_out.h>
+#include <deal.II/grid/grid_refinement.h>
+#include <deal.II/grid/tria_accessor.h>
+#include <deal.II/grid/tria_iterator.h>
+#include <deal.II/grid/grid_tools.h>
 
-#include <fe/mapping_q1.h>
-#include <fe/fe_values.h>
-#include <fe/fe_q.h>
-#include <fe/fe_dgp.h>
+#include <deal.II/fe/mapping_q1.h>
+#include <deal.II/fe/fe_values.h>
+#include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_dgp.h>
 
-#include <dofs/dof_handler.h>
-#include <dofs/dof_accessor.h>
-#include <dofs/dof_tools.h>
+#include <deal.II/dofs/dof_handler.h>
+#include <deal.II/dofs/dof_accessor.h>
+#include <deal.II/dofs/dof_tools.h>
 
-#include <numerics/data_out.h>
-#include <numerics/vector_tools.h>
-#include <numerics/derivative_approximation.h>
-#include <numerics/solution_transfer.h>
+#include <deal.II/numerics/data_out.h>
+#include <deal.II/numerics/vector_tools.h>
+#include <deal.II/numerics/derivative_approximation.h>
+#include <deal.II/numerics/solution_transfer.h>
 
-#include <meshworker/dof_info.h>
-#include <meshworker/integration_info.h>
-#include <meshworker/simple.h>
-#include <meshworker/loop.h>
+#include <deal.II/meshworker/dof_info.h>
+#include <deal.II/meshworker/integration_info.h>
+#include <deal.II/meshworker/simple.h>
+#include <deal.II/meshworker/loop.h>
 
-#include <lac/generic_linear_algebra.h>
-#include <lac/vector.h>
-#include <lac/full_matrix.h>
-#include <lac/solver_cg.h>
+#include <deal.II/lac/generic_linear_algebra.h>
+#include <deal.II/lac/vector.h>
+#include <deal.II/lac/full_matrix.h>
+#include <deal.II/lac/solver_cg.h>
 
-#include <distributed/tria.h>
-#include <distributed/grid_refinement.h>
-#include <distributed/solution_transfer.h>
+#include <deal.II/distributed/tria.h>
+#include <deal.II/distributed/grid_refinement.h>
+#include <deal.II/distributed/solution_transfer.h>
 
 #include <iostream>
 #include <fstream>
