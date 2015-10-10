@@ -30,13 +30,12 @@
 #include <deal.II/lac/compressed_sparsity_pattern.h>
 #include <deal.II/base/parameter_handler.h>
 #include <deal.II/base/convergence_table.h>
+#include <deal.II/base/logstream.h>
 
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/fe_field_function.h>
 #include <fstream>
 #include <iostream>
-
-#include <deal.II/base/logstream.h>
 
 using namespace dealii;
 
