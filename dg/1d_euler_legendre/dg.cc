@@ -11,32 +11,32 @@
    *
    * Author: Praveen. C, http://praveen.tifrbng.res.in
 */
-#include <grid/tria.h>
-#include <dofs/dof_handler.h>
-#include <grid/grid_generator.h>
-#include <grid/tria_accessor.h>
-#include <grid/tria_iterator.h>
-#include <dofs/dof_accessor.h>
-#include <fe/fe_dgp.h>
-#include <dofs/dof_tools.h>
-#include <fe/fe_values.h>
-#include <base/quadrature_lib.h>
-#include <base/function.h>
-#include <numerics/vector_tools.h>
-#include <numerics/matrix_tools.h>
-#include <lac/vector.h>
-#include <lac/full_matrix.h>
-#include <lac/sparse_matrix.h>
-#include <lac/compressed_sparsity_pattern.h>
-#include <base/parameter_handler.h>
-#include <base/convergence_table.h>
+#include <deal.II/grid/tria.h>
+#include <deal.II/dofs/dof_handler.h>
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/tria_accessor.h>
+#include <deal.II/grid/tria_iterator.h>
+#include <deal.II/dofs/dof_accessor.h>
+#include <deal.II/fe/fe_dgp.h>
+#include <deal.II/dofs/dof_tools.h>
+#include <deal.II/fe/fe_values.h>
+#include <deal.II/base/quadrature_lib.h>
+#include <deal.II/base/function.h>
+#include <deal.II/numerics/vector_tools.h>
+#include <deal.II/numerics/matrix_tools.h>
+#include <deal.II/lac/vector.h>
+#include <deal.II/lac/full_matrix.h>
+#include <deal.II/lac/sparse_matrix.h>
+#include <deal.II/lac/compressed_sparsity_pattern.h>
+#include <deal.II/base/parameter_handler.h>
+#include <deal.II/base/convergence_table.h>
 
-#include <numerics/data_out.h>
-#include <numerics/fe_field_function.h>
+#include <deal.II/numerics/data_out.h>
+#include <deal.II/numerics/fe_field_function.h>
 #include <fstream>
 #include <iostream>
 
-#include <base/logstream.h>
+#include <deal.II/base/logstream.h>
 
 using namespace dealii;
 
@@ -1716,13 +1716,13 @@ void EulerProblem<dim>::identify_troubled_cells ()
       switch(shock_indicator)
       {
          case ind_density:
-            ind = (u > 0.0) ? density_face_values[0] - density_nbr_l : 0.0
-                + (u < 0.0) ? density_face_values[1] - density_nbr_r : 0.0;
+            ind = ((u > 0.0) ? density_face_values[0] - density_nbr_l : 0.0)
+                + ((u < 0.0) ? density_face_values[1] - density_nbr_r : 0.0);
             var_avg = density_average[c];
             break;
          case ind_energy:
-            ind = (u > 0.0) ? energy_face_values[0] - energy_nbr_l : 0.0
-                + (u < 0.0) ? energy_face_values[1] - energy_nbr_r : 0.0;
+            ind = ((u > 0.0) ? energy_face_values[0] - energy_nbr_l : 0.0)
+                + ((u < 0.0) ? energy_face_values[1] - energy_nbr_r : 0.0);
             var_avg = energy_average[c];
             break;
          case ind_entropy:
@@ -1730,8 +1730,8 @@ void EulerProblem<dim>::identify_troubled_cells ()
             ent_r = entropy(density_face_values[1], momentum_face_values[1], energy_face_values[1]);
             ent_nbr_l = entropy(density_nbr_l, momentum_nbr_l, energy_nbr_l);
             ent_nbr_r = entropy(density_nbr_r, momentum_nbr_r, energy_nbr_r);
-            ind = (u > 0.0) ? ent_l - ent_nbr_l : 0.0
-                + (u < 0.0) ? ent_r - ent_nbr_r : 0.0;
+            ind = ((u > 0.0) ? ent_l - ent_nbr_l : 0.0)
+                + ((u < 0.0) ? ent_r - ent_nbr_r : 0.0);
             var_avg = entropy(density_average[c], momentum_average[c], energy_average[c]);
             break;
          case ind_entfun:
@@ -1739,8 +1739,8 @@ void EulerProblem<dim>::identify_troubled_cells ()
             ent_r = entropy(density_face_values[1], momentum_face_values[1], energy_face_values[1]);
             ent_nbr_l = entropy(density_nbr_l, momentum_nbr_l, energy_nbr_l);
             ent_nbr_r = entropy(density_nbr_r, momentum_nbr_r, energy_nbr_r);
-            ind = (u > 0.0) ? (density_face_values[0] * ent_l - density_nbr_l * ent_nbr_l) : 0.0
-                + (u < 0.0) ? (density_face_values[1] * ent_r - density_nbr_r * ent_nbr_r) : 0.0;
+            ind = ((u > 0.0) ? (density_face_values[0] * ent_l - density_nbr_l * ent_nbr_l) : 0.0)
+                + ((u < 0.0) ? (density_face_values[1] * ent_r - density_nbr_r * ent_nbr_r) : 0.0);
             var_avg = entropy(density_average[c], momentum_average[c], energy_average[c]);
             var_avg *= density_average[c];
             break;
