@@ -8,7 +8,10 @@
    * Positivity preserving limiter
    * Numerical fluxes: Lax-Friedrich
    *
-   * Author: Praveen. C, http://praveen.tifrbng.res.in
+   * Authors: 
+   *     Praveen. C, http://praveen.tifrbng.res.in
+   *     Asha Meena
+   *     Harish Kumar
 */
 #include <deal.II/grid/tria.h>
 #include <deal.II/dofs/dof_handler.h>
@@ -674,15 +677,15 @@ void euler_flux (const double& density,
    double velocity1 = momentum1 / density;
    double velocity2 = momentum2 / density;
    double pressure11 = 2.0 * (energy11 - 0.5 * density * velocity1 * velocity1);
-   double pressure12 = 2.0 * (energy11 - 0.5 * density * velocity1 * velocity2);
-   double pressure22 = 2.0 * (energy11 - 0.5 * density * velocity2 * velocity2);
+   double pressure12 = 2.0 * (energy12 - 0.5 * density * velocity1 * velocity2);
+   double pressure22 = 2.0 * (energy22 - 0.5 * density * velocity2 * velocity2);
 
    flux(0) = momentum1;
    flux(1) = pressure11 + density * velocity1 * velocity1;
    flux(2) = pressure12 + density * velocity1 * velocity2;
    flux(3) = (energy11 + pressure11) * velocity1;
    flux(4) = energy12 * velocity1 + 0.5*(pressure11 * velocity2 + pressure12 * velocity1);
-   flux(5) = (energy22 + pressure22) * velocity2;
+   flux(5) = energy22 * velocity1 + pressure12 * velocity2;
 }
 
 //------------------------------------------------------------------------------
@@ -692,34 +695,50 @@ void LaxFlux (const Vector<double>& left_state,
               const Vector<double>& right_state,
               Vector<double>& flux)
 {
-   // Left state 
-   double left_velocity = left_state(1) / left_state(0);
-   double left_pressure = (gas_gamma-1.0) * (left_state(2) - 
-                              0.5 * left_state(1) * left_velocity );
-   double left_sonic    = sqrt( gas_gamma * left_pressure / left_state(0) );
-   double left_eig      = fabs(left_velocity) + left_sonic;
-
+   // Left state
+   double left_velocity1 = left_state(1) / left_state(0);
+   double left_velocity2 = left_state(2) / left_state(0);
+   double left_pressure11 =  2.0 * left_state(3) -
+                             left_state(1) * left_velocity1;
+   double left_pressure12 =  2.0 * left_state(4) -
+                             left_state(1) * left_velocity2;
+   
+   double left_sonic  = sqrt( 3.0 * left_pressure11 / left_state(0) );
+   double left_eig_max= fabs(left_velocity1) + left_sonic;
+   
    // Left flux
    Vector<double> left_flux(n_var);
    left_flux(0) = left_state(1);
-   left_flux(1) = left_pressure + left_state(1) * left_velocity;
-   left_flux(2) = (left_state(2) + left_pressure) * left_velocity;
-
+   left_flux(1) = left_pressure11 + left_state(1) * left_velocity1;
+   left_flux(2) = left_pressure12 + left_state(1) * left_velocity2;
+   left_flux(3) = (left_state(3) + left_pressure11) * left_velocity1;
+   left_flux(4) = left_state(4) * left_velocity1 +
+                   0.5 * (left_pressure11 * left_velocity2 + left_pressure12 * left_velocity1);
+   left_flux(5) = left_state(5) * left_velocity1 + left_pressure12 * left_velocity2;
+   
    // Right state
-   double right_velocity = right_state(1) / right_state(0);
-   double right_pressure = (gas_gamma-1.0) * (right_state(2) - 
-                              0.5 * right_state(1) * right_velocity );
-   double right_sonic    = sqrt( gas_gamma * right_pressure / right_state(0) );
-   double right_eig      = fabs(right_velocity) + right_sonic;
-
+   double right_velocity1 = right_state(1) / right_state(0);
+   double right_velocity2 = right_state(2) / right_state(0);
+   double right_pressure11 = 2.0 * right_state(3) -
+                              right_state(1) * right_velocity1;
+   double right_pressure12 = 2.0 * right_state(4) -
+                              right_state(1) * right_velocity2;
+   
+   double right_sonic  = sqrt( 3.0 * right_pressure11 / right_state(0) );
+   double right_eig_max= fabs(right_velocity1) + right_sonic;
+   
    // Right flux
    Vector<double> right_flux(n_var);
    right_flux(0) = right_state(1);
-   right_flux(1) = right_pressure + right_state(1) * right_velocity;
-   right_flux(2) = (right_state(2) + right_pressure) * right_velocity;
+   right_flux(1) = right_pressure11 + right_state(1) * right_velocity1;
+   right_flux(2) = right_pressure12 + right_state(1) * right_velocity2;
+   right_flux(3) = (right_state(3) + right_pressure11) * right_velocity1;
+   right_flux(4) = right_state(4) * right_velocity1 +
+                   0.5 * (right_pressure11 * right_velocity2 + right_pressure12 * right_velocity1);
+   right_flux(5) = right_state(5) * right_velocity1 + right_pressure12 * right_velocity2;
    
    // Maximum local wave speed at face
-   double lambda = std::max ( left_eig, right_eig );
+   double lambda = std::max ( left_eig_max, right_eig_max );
    
    for(unsigned int i=0; i<n_var; ++i)
       flux(i) = 0.5 * ( left_flux(i) + right_flux(i) ) -
