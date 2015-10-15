@@ -417,13 +417,13 @@ EulerProblem<dim>::EulerProblem (unsigned int degree,
    }
    else if(n_rk_stages==2)
    {
-      a_rk = {0.0, 0.5};
-      b_rk = {1.0, 0.5};
+      a_rk[0] = 0.0; a_rk[1] = 0.5;
+      b_rk[0] = 1.0; b_rk[1] = 0.5;
    }
    else if(n_rk_stages==3)
    {
-      a_rk = {0.0, 3.0/4.0, 1.0/3.0};
-      b_rk = {1.0, 1.0/4.0, 2.0/3.0};
+      a_rk[0] = 0.0; a_rk[1] = 3.0/4.0; a_rk[2] = 1.0/3.0;
+      b_rk[0] = 1.0; b_rk[1] = 1.0/4.0; b_rk[2] = 2.0/3.0;
    }
    else
    {
@@ -2554,7 +2554,7 @@ void EulerProblem<dim>::output_results () const
       data_out.build_patches (fe.degree+1);
    
    std::string filename = "sol_" + Utilities::int_to_string(c) + ".gpl";
-   std::ofstream output (filename);
+   std::ofstream output (filename.c_str());
    data_out.write_gnuplot (output);
 
    // save cell average solution
@@ -2564,7 +2564,7 @@ void EulerProblem<dim>::output_results () const
 
    std::ofstream fo;
    filename = "avg.gpl";
-   fo.open (filename);
+   fo.open (filename.c_str());
 
    for (unsigned int c=0; cell!=endc; ++c, ++cell)
    {

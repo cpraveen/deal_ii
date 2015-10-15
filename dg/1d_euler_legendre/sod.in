@@ -1,11 +1,11 @@
-set degree                 = 3
+set degree                 = 1
 set ncells                 = 100
 set test case              = sod
 set flux                   = roe
 set limiter                = TVB
 set viscosity              = persson
 set cip                    = 0
-set indicator              = eresidual
+set indicator              = None
 set characteristic limiter = true
 set positivity limiter     = false
 set M                      = 0.0
