@@ -1,0 +1,7 @@
+To run, do these steps
+
+rm sol_*.gpl
+./dg sod.in
+gnuplot sod.gnu
+
+This animates density profile.

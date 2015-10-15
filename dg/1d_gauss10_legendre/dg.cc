@@ -97,44 +97,16 @@ double maxmod (const double& a, const double& b)
 // Compute matrix of eigenvectors = R
 // and its inverse matrix = Ri
 //------------------------------------------------------------------------------
-void EigMat(double d, double m, double E, double R[][n_var], double Ri[][n_var])
+void EigMat(const double& d,
+            const double& m1,
+            const double& m2,
+            const double& e11,
+            const double& e12,
+            const double& e22,
+            double R[][n_var], double Ri[][n_var])
 {
-   double v, p, c, h, f, g1, g2;
-
-   g1 = gas_gamma - 1.0;
-   g2 = g1 / 2.0;
-
-   v = m / d;
-   p = (gas_gamma - 1.0) * (E - 0.5 * d * v * v);
-   c = sqrt(gas_gamma * p / d);
-   h = c * c / g1 + 0.5 * v * v;
-   f = d / c / 2.0;
-
-   /* Inverse eigenvector-matrix */
-   Ri[0][0] = 1.0 - g2 * v * v / c / c;
-   Ri[1][0] = (g2 * v * v - v * c) / d / c;
-   Ri[2][0] = -(g2 * v * v + v * c) / d / c;
-
-   Ri[0][1] = g1 * v / c / c;
-   Ri[1][1] = (c - g1 * v) / d / c;
-   Ri[2][1] = (c + g1 * v) / d / c;
-
-   Ri[0][2] = -g1 / c / c;
-   Ri[1][2] = g1 / d / c;
-   Ri[2][2] = -g1 / d / c;
-
-   /* Eigenvector matrix */
-   R[0][0] = 1.0;
-   R[1][0] = v;
-   R[2][0] = v * v / 2.0;
-
-   R[0][1] = f;
-   R[1][1] = (v + c) * f;
-   R[2][1] = (h + v * c) * f;
-
-   R[0][2] = -f;
-   R[1][2] = -(v - c) * f;
-   R[2][2] = -(h - v * c) * f;
+   std::cout << "EigMat not implemented !!!\n";
+   AssertThrow(false, ExcMessage("EigMat not implemented !!!"));
 }
 
 //------------------------------------------------------------------------------
@@ -261,6 +233,7 @@ private:
    double               dt;
    double               dx;
    double               cfl;
+   double               beta;
    double               final_time;
    double               min_residue;
    unsigned int         max_iter;
@@ -329,6 +302,7 @@ Gauss10<dim>::Gauss10 (unsigned int degree,
    lim_pos  = prm.get_bool("positivity limiter");
    cfl      = prm.get_double("cfl");
    double M = prm.get_double("M");
+   beta     = prm.get_double("beta");
    save_freq= prm.get_integer("save frequency");
    limiter  = prm.get("limiter");
    std::string flux  = prm.get("flux");
@@ -378,9 +352,6 @@ Gauss10<dim>::Gauss10 (unsigned int degree,
       xmax    = 1.0;
       xmid    = 0.5;
       final_time = 0.2;
-      
-      gas_gamma = 1.4;
-      gas_const = 1.0;
       
       d_left  = 1.0;
       d_right = 0.125;
@@ -678,7 +649,6 @@ void euler_flux (const double& density,
    double velocity2 = momentum2 / density;
    double pressure11 = 2.0 * (energy11 - 0.5 * density * velocity1 * velocity1);
    double pressure12 = 2.0 * (energy12 - 0.5 * density * velocity1 * velocity2);
-   double pressure22 = 2.0 * (energy22 - 0.5 * density * velocity2 * velocity2);
 
    flux(0) = momentum1;
    flux(1) = pressure11 + density * velocity1 * velocity1;
@@ -816,7 +786,8 @@ void Gauss10<dim>::assemble_rhs ()
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
    
-    residual[0] = residual[1] = residual[2] = 0.0;
+   for(unsigned int i=0; i<n_var; ++i)
+      residual[i] = 0.0;
    
     for (unsigned int c=0; cell!=endc; ++cell, ++c)
     {
@@ -1076,27 +1047,27 @@ void Gauss10<dim>::compute_averages ()
 template <int dim>
 void Gauss10<dim>::apply_limiter ()
 {
-   /*
+   
    if(limiter == "TVB")
       apply_limiter_TVB ();
-   else if(limiter == "BDF")
+   /* else if(limiter == "BDF")
       apply_limiter_BDF ();
    else if(limiter == "BSB")
       apply_limiter_BSB ();
    else if(limiter == "None" || limiter == "visc")
-      return;
+      return; */
    else
    {
       std::cout << "Unknown limiter\n";
       exit(0);
    }
-   */
+   
 }
 
 //------------------------------------------------------------------------------
 // Apply TVD limiter
 //------------------------------------------------------------------------------
-/*
+
 template <int dim>
 void Gauss10<dim>::apply_limiter_TVB ()
 {
@@ -1106,7 +1077,8 @@ void Gauss10<dim>::apply_limiter_TVB ()
    
    FEValues<dim> fe_values (fe, quadrature_formula, update_values);
    std::vector<double> density_face_values(2), momentum1_face_values(2),
-                       energy_face_values(2);
+                       momentum2_face_values(2), energy11_face_values(2),
+                       energy12_face_values(2), energy22_face_values(2);
    
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;   
    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
@@ -1119,7 +1091,10 @@ void Gauss10<dim>::apply_limiter_TVB ()
    std::vector<double> dl(n_var), dr(n_var);
    double density_left, density_right;
    double momentum1_left, momentum1_right;
-   double energy_left, energy_right;
+   double momentum2_left, momentum2_right;
+   double energy11_left, energy11_right;
+   double energy12_left, energy12_right;
+   double energy22_left, energy22_right; 
    
    for (unsigned int c=0; c<n_cells; ++c, ++cell)
    {
@@ -1127,7 +1102,10 @@ void Gauss10<dim>::apply_limiter_TVB ()
       cell->get_dof_indices (local_dof_indices);
       fe_values.get_function_values(density, density_face_values);
       fe_values.get_function_values(momentum1, momentum1_face_values);
-      fe_values.get_function_values(energy, energy_face_values);
+      fe_values.get_function_values(momentum2, momentum2_face_values);
+      fe_values.get_function_values(energy11, energy11_face_values);
+      fe_values.get_function_values(energy12, energy12_face_values);
+      fe_values.get_function_values(energy22, energy22_face_values);  
       
       unsigned int lc = (c==0) ? n_cells-1 : c-1;
       unsigned int rc = (c==n_cells-1) ? 0 : c+1;
@@ -1139,34 +1117,52 @@ void Gauss10<dim>::apply_limiter_TVB ()
             momentum1_left = -momentum1_average[c];
          else
             momentum1_left = momentum1_average[c];
-         energy_left = energy_average[c];
+         momentum2_left = momentum2_average[c];
+         energy11_left = energy11_average[c];
+         energy12_left = energy12_average[c];
+         energy22_left = energy22_average[c];
          
          density_right = density_average[c+1];
          momentum1_right = momentum1_average[c+1];
-         energy_right = energy_average[c+1];
+         momentum2_right = momentum2_average[c+1];
+         energy11_right = energy11_average[c+1];
+         energy12_right = energy12_average[c+1];
+         energy22_right = energy22_average[c+1];
       }
       else if(c == n_cells-1 && !periodic)
       {
          density_left = density_average[c-1];
          momentum1_left = momentum1_average[c-1];
-         energy_left = energy_average[c-1];
+         momentum2_left = momentum2_average[c-1];
+         energy11_left = energy11_average[c-1];
+         energy12_left = energy12_average[c-1];
+         energy22_left = energy22_average[c-1]; 
          
          density_right = density_average[c];
          if(rbc_reflect)
             momentum1_right = -momentum1_average[c];
          else
             momentum1_right = momentum1_average[c];
-         energy_right = energy_average[c];
+         momentum2_right = momentum2_average[c]; 
+         energy11_right = energy11_average[c];
+         energy12_right = energy12_average[c];
+         energy22_right = energy22_average[c];
       }
       else
       {
          density_left = density_average[lc];
          momentum1_left = momentum1_average[lc];
-         energy_left = energy_average[lc];
+         momentum2_left = momentum2_average[lc];
+         energy11_left = energy11_average[lc];
+         energy12_left = energy12_average[lc];
+         energy22_left = energy22_average[lc]; 
          
          density_right = density_average[rc];
          momentum1_right = momentum1_average[rc];
-         energy_right = energy_average[rc];
+         momentum2_right = momentum2_average[rc];
+         energy11_right = energy11_average[rc];
+         energy12_right = energy12_average[rc];
+         energy22_right = energy22_average[rc];
       }
       
       // density
@@ -1180,19 +1176,41 @@ void Gauss10<dim>::apply_limiter_TVB ()
       df[1] = momentum1_right - momentum1_average[c];
       DB[1] = momentum1_average[c] - momentum1_face_values[0];
       DF[1] = momentum1_face_values[1] - momentum1_average[c];
-      
-      // energy
-      db[2] = energy_average[c] - energy_left;
-      df[2] = energy_right - energy_average[c];
-      DB[2] = energy_average[c] - energy_face_values[0];
-      DF[2] = energy_face_values[1] - energy_average[c];
 
-      double R[n_var][n_var], Ri[n_var][n_var];
+      // momentum2
+      db[2] = momentum2_average[c] - momentum2_left;
+      df[2] = momentum2_right - momentum2_average[c];
+      DB[2] = momentum2_average[c] - momentum2_face_values[0];
+      DF[2] = momentum2_face_values[1] - momentum2_average[c];
+      
+      // energy11
+      db[3] = energy11_average[c] - energy11_left;
+      df[3] = energy11_right - energy11_average[c];
+      DB[3] = energy11_average[c] - energy11_face_values[0];
+      DF[3] = energy11_face_values[1] - energy11_average[c];
+
+      // energy12
+      db[4] = energy12_average[c] - energy12_left;
+      df[4] = energy12_right - energy12_average[c];
+      DB[4] = energy12_average[c] - energy12_face_values[0];
+      DF[4] = energy12_face_values[1] - energy12_average[c];
+
+      // energy22
+      db[5] = energy22_average[c] - energy22_left;
+      df[5] = energy22_right - energy22_average[c];
+      DB[5] = energy22_average[c] - energy22_face_values[0];
+      DF[5] = energy22_face_values[1] - energy22_average[c];
+
+       double R[n_var][n_var], Ri[n_var][n_var];
       if(lim_char)
       {
          EigMat(density_average[c], 
-                momentum1_average[c], 
-                energy_average[c], R, Ri);
+                momentum1_average[c],
+                momentum2_average[c],
+                energy11_average[c],
+                energy12_average[c],
+                energy22_average[c],
+                R, Ri);
          Multi(Ri, db);
          Multi(Ri, df);
          Multi(Ri, DB);
@@ -1202,8 +1220,8 @@ void Gauss10<dim>::apply_limiter_TVB ()
       double diff = 0;
       for(unsigned int i=0; i<n_var; ++i)
       {
-         dl[i] = minmod (DB[i], db[i], df[i]);
-         dr[i] = minmod (DF[i], db[i], df[i]);
+         dl[i] = minmod (DB[i], beta*db[i], beta*df[i]);
+         dr[i] = minmod (DF[i], beta*db[i], beta*df[i]);
          diff += std::fabs(dl[i] - DB[i]) + std::fabs(dr[i]-DF[i]);
       }
       diff /= (2*n_var);
@@ -1219,18 +1237,26 @@ void Gauss10<dim>::apply_limiter_TVB ()
          }
          density(local_dof_indices[1])  = 0.5*(dl[0] + dr[0]) / fe_values.shape_value(1,1);
          momentum1(local_dof_indices[1]) = 0.5*(dl[1] + dr[1]) / fe_values.shape_value(1,1);
-         energy(local_dof_indices[1])   = 0.5*(dl[2] + dr[2]) / fe_values.shape_value(1,1);
+         momentum2(local_dof_indices[1]) = 0.5*(dl[2] + dr[2]) / fe_values.shape_value(1,1);
+         energy11(local_dof_indices[1])  = 0.5*(dl[3] + dr[3]) / fe_values.shape_value(1,1);
+         energy12(local_dof_indices[1])  = 0.5*(dl[4] + dr[4]) / fe_values.shape_value(1,1);
+         energy22(local_dof_indices[1])  = 0.5*(dl[5] + dr[5]) / fe_values.shape_value(1,1);
+
          // Higher dofs are set to zero
          for(unsigned int i=2; i<dofs_per_cell; ++i)
          {
-            density(local_dof_indices[i])  = 0.0;
+            density(local_dof_indices[i])   = 0.0;
             momentum1(local_dof_indices[i]) = 0.0;
-            energy(local_dof_indices[i])   = 0.0;
+            momentum2(local_dof_indices[i]) = 0.0;
+            energy11(local_dof_indices[i])  = 0.0;
+            energy12(local_dof_indices[i])  = 0.0; 
+            energy22(local_dof_indices[i])  = 0.0;
          }
       }
       
    }
 }
+/*
 //------------------------------------------------------------------------------
 // Apply moment limiter of Biswas, Devine, Flaherty
 //------------------------------------------------------------------------------
@@ -1761,6 +1787,11 @@ void Gauss10<dim>::output_results () const
    
    data_out.attach_dof_handler (dof_handler);
    data_out.add_data_vector (density, "density");
+   data_out.add_data_vector (momentum1, "momentum1");
+   data_out.add_data_vector (momentum2, "momentum2");
+   data_out.add_data_vector (energy11, "energy11");
+   data_out.add_data_vector (energy12, "energy12");
+   data_out.add_data_vector (energy22, "energy22");
    
    if(fe.degree <= 1)
       data_out.build_patches (1);
@@ -1889,13 +1920,13 @@ void Gauss10<dim>::run (double& h,
        {
           std::cout << "Initial residual = " << residual[0] << " "
                     << residual[1] << " "
-                    << residual[2] << std::endl;
-          for(unsigned int i=0; i<3; ++i)
+                    << residual[2] << " "
+                    << residual[3] << " "
+                    << residual[4] << " "
+                    << residual[5] << std::endl;
+          for(unsigned int i=0; i<n_var; ++i)
              residual0[i] = residual[i];
        }
-       
-       for(unsigned int i=0; i<n_var; ++i)
-          residual[i] /= residual0[i];
        
       time += dt;
       ++iter;
@@ -1903,7 +1934,8 @@ void Gauss10<dim>::run (double& h,
        
       std::cout << "Iter = " << iter << " time = " << time 
                 << " Res =" << residual[0] << " " << residual[1] << " "
-                << residual[2] << std::endl;
+                << residual[2] << " " << residual[3] << " "
+                << residual[4] << " " << residual[5] << std::endl;
     }
     output_results ();
    
@@ -1940,6 +1972,8 @@ void declare_parameters(ParameterHandler& prm)
                      Patterns::Double(0,1.0), "cfl number");
    prm.declare_entry("M", "0.0",
                      Patterns::Double(0,1.0e20), "TVB constant");
+   prm.declare_entry("beta", "1.0",
+                     Patterns::Double(0.5,1.0), "Constant in minmod limiter");
    prm.declare_entry("refine","0", Patterns::Integer(0,10),
                      "Number of mesh refinements");
    prm.declare_entry("max iter","1000000000", Patterns::Integer(0,1000000000),
