@@ -1,11 +1,11 @@
 set degree                 = 1
 set ncells                 = 100
 set test case              = sod
-set flux                   = lxf
+set flux                   = hllc
 set limiter                = TVB
-set characteristic limiter = false
+set characteristic limiter = true
 set positivity limiter     = false
 set M                      = 0.0
-set beta                   = 0.5
+set beta                   = 1.0
 set cfl                    = 0.8
 set save frequency         = 10

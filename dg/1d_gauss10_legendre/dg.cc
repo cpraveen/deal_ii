@@ -100,14 +100,113 @@ double maxmod (const double& a, const double& b)
 void EigMat(const double& d,
             const double& m1,
             const double& m2,
-            const double& e11,
-            const double& e12,
-            const double& e22,
+            const double& E11,
+            const double& E12,
+            const double& E22,
             double R[][n_var], double Ri[][n_var])
 {
-   std::cout << "EigMat not implemented !!!\n";
-   AssertThrow(false, ExcMessage("EigMat not implemented !!!"));
+   double v1, v2, p11, p12, p22, c;
+
+   v1 = m1 / d;
+   v2 = m2 / d;
+   p11 = 2.0 * E11 - d * v1 * v1;
+   p12 = 2.0 * E12 - d * v1 * v2;
+   p22 = 2.0 * E22 - d * v2 * v2;
+   c = sqrt(3 * p11 / d);
+
+   /* Inverse eigenvector-matrix */
+   Ri[0][0] = (- 3.0 * v1 * p11 / d - c * v1 * v1) / ( - 6.0 * c * p11 * p11);
+   Ri[1][0] = (v1 * p11 * p12 / d - v2 * p11 * p11 / d + c * v1 * v1 * p12 / sqrt( 3.0 ) - c * v1 * v2 * p11 / sqrt( 3.0)) / 
+              ( -2.0 * c * p11 * p11 / sqrt( 3.0 )); 
+   Ri[2][0] = ( 3.0 * p11 - d * v1 * v1 ) / ( 3.0 * p11); 
+   Ri[3][0] = (4.0 * v1 * v1 * p12 * p12 - v1 * v1 * p11 * p22 - 6.0 * v1 * v2 * p11 * p22 + 3.0 * v2 * v2 * p11 * p11) / ( 3.0 * p11 * p11); 
+   Ri[4][0] = (v1 * p11 * p12 / d - v2 * p11 * p11 / d - c * v1 * v1 * p12 / sqrt( 3.0 ) + c * v1 * v2 * p11 / sqrt( 3.0)) / 
+              ( 2.0 * c * p11 * p11 / sqrt( 3.0 ));
+   Ri[5][0] = (- 3.0 * v1 * p11 / d + c * v1 * v1) / (  6.0 * c * p11 * p11);
+
+
+   Ri[0][1] = ( 3.0 * p11 / d + 2.0 * c * v1 )/ ( - 6.0 * c * p11 * p11 ) ;
+   Ri[1][1] = (- p11 * p12 / d - 2.0 * v1 * p12 * c / sqrt( 3.0 ) + c * v2 * p11 / sqrt ( 3.0) ) / ( - 2.0 * c * p11 * p11 / sqrt( 3.0 ));
+   Ri[2][1] = 2.0 * v1 * d / ( 3.0 * p11 );
+   Ri[3][1] = (- 8.0 * v1 * p12 * p12 + 2.0 * v1 * p11 * p22 + 6.0 * v2 * p11 * p22 ) / ( 3.0 * p11 * p11);
+   Ri[4][1] = (- p11 * p12 / d + 2.0 * v1 * p12 * c / sqrt( 3.0 ) - c * v2 * p11 / sqrt ( 3.0) ) / (  2.0 * c * p11 * p11 / sqrt( 3.0 ));
+   Ri[5][1] = ( 3.0 * p11 / d - 2.0 * c * v1 )/ ( 6.0 * c * p11 * p11 ) ;
+
+   Ri[0][2] = 0.0;
+   Ri[1][2] = (p11 * p11 / d + v1 * c * p11 / sqrt( 3.0 )) / ( - 2.0 * c * p11 * p11 / sqrt( 3.0 ));
+   Ri[2][2] = 0.0;
+   Ri[3][2] = (6.0 * v1 * p11 * p22 - 6.0 * v2 * p11 * p11) / ( 3.0 * p11 * p11);
+   Ri[4][2] = (p11 * p11 / d - v1 * c * p11 / sqrt( 3.0 )) / (  2.0 * c * p11 * p11 / sqrt( 3.0 ));
+   Ri[5][2] = 0.0; 
+
+   Ri[0][3] = - 2.0 * c / ( - 6.0 * c * p11 * p11);
+   Ri[1][3] = ( 2 * c * p12 / sqrt( 3.0 ) ) / ( - 2.0 * c * p11 * p11 / sqrt( 3.0 ));
+   Ri[2][3] = - 2.0  * d / ( 3 * p11 );
+   Ri[3][3] = ( 8.0 * p12 * p12 - 2.0 * p11 * p22 ) / ( 3.0 * p11 * p11);
+   Ri[4][3] = ( - 2 * c * p12 / sqrt( 3.0 ) ) / ( 2.0 * c * p11 * p11 / sqrt( 3.0 ));
+   Ri[5][3] =  2.0 * c / ( 6.0 * c * p11 * p11);
+
+   Ri[0][4] = 0.0;
+   Ri[1][4] = ( - 2 * c * p11 / sqrt( 3.0)) / ( - 2.0 * c * p11 * p11 / sqrt( 3.0 ));
+   Ri[2][4] = 0.0;
+   Ri[3][4] = - 12.0 * p11 * p22 / ( 3.0 * p11 * p11); 
+   Ri[4][4] = ( 2 * c * p11 / sqrt( 3.0)) / ( 2.0 * c * p11 * p11 / sqrt( 3.0 ));;
+   Ri[5][4] = 0.0;
+
+   Ri[0][5] = 0.0;
+   Ri[1][5] = 0.0;
+   Ri[2][5] = 0.0;
+   Ri[3][5] = 2.0;
+   Ri[4][5] = 0.0;
+   Ri[5][5] = 0.0;
+
+
+   /* Eigenvector matrix */
+   R[0][0] = d * p11;
+   R[1][0] = d * v1 * p11 - c * d * p11;
+   R[2][0] = d * v2 * p11 - c * d * p12;
+   R[3][0] = d * v1 * v1 * p11 / 2.0 - c * d * v1 * p11 + 3.0 * p11 * p11 / 2.0;
+   R[4][0] = d * v1 * v2 * p11 / 2.0 - c * d * v2 * p11 / 2.0 - c * d * v1 * p12 / 2.0 + 3.0 * p11 * p12 /  2.0; 
+   R[5][0] = d * v2 * v2 * p11 / 2.0 - p12 * c * d * v2 + p11 * p22 / 2.0 + p12 * p12;
+
+   R[0][1] = 0.0;
+   R[1][1] = 0.0;
+   R[2][1] = - c * d / sqrt( 3.0 );
+   R[3][1] = 0.0;
+   R[4][1] = -c * d * v1 / ( 2.0 * sqrt( 3.0 )) + p11 / 2.0;
+   R[5][1] = -c * d * v2 / sqrt( 3.0 ) + p12; 
+
+   R[0][2] = 1.0;
+   R[1][2] = v1;
+   R[2][2] = v2;
+   R[3][2] = v1 * v1 / 2.0;
+   R[4][2] = v1 * v2 / 2.0;
+   R[5][2] = v2 * v2 / 2.0;
+
+   R[0][3] = 0.0;
+   R[1][3] = 0.0;
+   R[2][3] = 0.0;
+   R[3][3] = 0.0;
+   R[4][3] = 0.0;
+   R[5][3] = 0.5;
+
+   R[0][4] = 0.0;
+   R[1][4] = 0.0;
+   R[2][4] = c * d / sqrt( 3.0 );
+   R[3][4] = 0.0;
+   R[4][4] = c * d * v1 / ( 2.0 * sqrt( 3.0 )) + p11 / 2.0;
+   R[5][4] = c * d * v2 / sqrt( 3.0) + p12;
+   
+   R[0][5] = d * p11;
+   R[1][5] =  d * v1 * p11 + c * d * p11;
+   R[2][5] = d * v2 * p11 + c * d * p12;
+   R[3][5] = d * v1 * v1 * p11 / 2.0 + c * d * v1 * p11 + 3.0 * p11 * p11 / 2.0 ;
+   R[4][5] = d * v1 * v2 * p11 / 2.0 + c * d * v2 * p11 / 2.0 + c * d * v1 * p12 / 2.0 + 3.0 * p11 * p12 /  2.0;
+   R[5][5] = d * v2 * v2 * p11 / 2.0 + p12 * c * d * v2 + p11 * p22 / 2.0 + p12 * p12;
+    
 }
+
+
 
 //------------------------------------------------------------------------------
 // U = R*U
@@ -337,6 +436,8 @@ Gauss10<dim>::Gauss10 (unsigned int degree,
    // Set flux enum type
    if(flux == "lxf")
       flux_type = lxf;
+   else if(flux == "hllc")
+      flux_type = hllc;
    else
    {
       std::cout << "Numerical flux type is not set\n";
@@ -715,6 +816,147 @@ void LaxFlux (const Vector<double>& left_state,
                 0.5 * lambda * ( right_state(i) - left_state(i) );
 }
 
+//-----------------------------------------------------------------------------
+// HLLC Flux for 10-moment gaussian closure model.......//
+//------------------------------------------------------------------------------
+void HLLCFlux (const Vector<double>& left_state,
+               const Vector<double>& right_state,
+               Vector<double>&       flux)
+{
+   
+   // Left state
+   double left_density = left_state(0);
+   double left_velocity1 = left_state(1) / left_state(0);
+   double left_velocity2 = left_state(2) / left_state(0);
+   double left_pressure11 = 2.0 * left_state(3) - left_state(1) * left_velocity1;
+   double left_pressure12 = 2.0 * left_state(4) - left_state(1) * left_velocity2;
+   double left_pressure22 = 2.0 * left_state(5) - left_state(2) * left_velocity2;
+
+   double left_sonic1 = sqrt( 3.0 * left_pressure11 / left_density );
+   double left_sonic2 = left_pressure12 / sqrt( left_density * left_pressure22);
+   double left_enthalpy11 = left_velocity1 * left_velocity1 + 3.0 * left_pressure11 / left_density;
+   
+   // Left flux
+   Vector<double> left_flux(n_var);
+   left_flux(0) = left_state(1);
+   left_flux(1) = left_pressure11 + left_state(1) * left_velocity1;
+   left_flux(2) = left_pressure12 + left_state(1) * left_velocity2;
+   left_flux(3) = (left_state(3) + left_pressure11) * left_velocity1;
+   left_flux(4) = left_state(4) * left_velocity1 +
+                   0.5 * (left_pressure11 * left_velocity2 + left_pressure12 * left_velocity1);
+   left_flux(5) = left_state(5) * left_velocity1 + left_pressure12 * left_velocity2;
+   
+   // Right state
+   double right_density = right_state(0);
+   double right_velocity1 = right_state(1) / right_state(0);
+   double right_velocity2 = right_state(2) / right_state(0);
+   double right_pressure11 = 2.0 * right_state(3) - right_state(1) * right_velocity1;
+   double right_pressure12 = 2.0 * right_state(4) - right_state(1) * right_velocity2;
+   double right_pressure22 = 2.0 * right_state(5) - right_state(2) * right_velocity2;
+
+   double right_sonic1 = sqrt( 3.0 * right_pressure11 / right_density );
+   double right_sonic2 = right_pressure12 / sqrt( left_density * right_pressure22 );
+   double right_enthalpy11 = right_velocity1 * right_velocity1 + 3.0 * right_pressure11 / right_density;
+   
+   // Right flux
+   Vector<double> right_flux(n_var);
+   right_flux(0) = right_state(1);
+   right_flux(1) = right_pressure11 + right_state(1) * right_velocity1;
+   right_flux(2) = right_pressure12 + right_state(1) * right_velocity2;
+   right_flux(3) = (right_state(3) + right_pressure11) * right_velocity1;
+   right_flux(4) = right_state(4) * right_velocity1 +
+                   0.5 * (right_pressure11 * right_velocity2 + right_pressure12 * right_velocity1);
+   right_flux(5) = right_state(5) * right_velocity1 + right_pressure12 * right_velocity2;
+   
+   // Wavespeed Roe.....Reference: HLLC Scheme Sangam 2008...........
+   double avgRoe_velocity1 = ( left_velocity1 * sqrt( left_density ) + right_velocity1 * sqrt( right_density ) ) / 
+                             ( sqrt( left_density ) + sqrt( right_density ) );
+   double avgRoe_sound_speed = sqrt( ( sqrt( left_density ) * left_enthalpy11 + sqrt( right_density ) * right_enthalpy11 ) / 
+                               ( sqrt( left_density ) + sqrt( right_density ) ) - avgRoe_velocity1 * avgRoe_velocity1 );
+
+   double left_wavespeed = std::min( avgRoe_velocity1 - avgRoe_sound_speed, 
+                            std::min( left_velocity1 - left_sonic1, left_velocity1 - left_sonic2 ) );
+   double right_wavespeed = std::max( avgRoe_velocity1 + avgRoe_sound_speed, 
+                            std::max( right_velocity1 + right_sonic1, right_velocity1 + right_sonic2 ) );
+
+   // left_v1_star = right_v1_star = v1_star, left_v2_star = right_v2_star = v2_star
+   double velocity1_star = ( left_pressure11 - right_pressure11 + left_density * left_velocity1 * ( left_velocity1 - left_wavespeed) 
+                           - right_density * right_velocity1 * ( right_velocity1 - right_wavespeed) ) / ( left_density * ( left_velocity1 - 
+                           left_wavespeed) - right_density * ( right_velocity1 - right_wavespeed) );
+
+    double velocity2_star = ( left_pressure12 - right_pressure12 + left_density * left_velocity2 * ( left_velocity1 - left_wavespeed) 
+                            - right_density * right_velocity2 * ( right_velocity1 - right_wavespeed) ) / ( left_density * ( left_velocity1 - 
+                            left_wavespeed) - right_density * ( right_velocity1 - right_wavespeed) );
+
+   // left_star states
+   double left_density_star = left_density * ( left_velocity1 - left_wavespeed ) / ( velocity1_star - left_wavespeed );
+   double left_pressure11_star = left_pressure11 + left_density_star * velocity1_star * ( left_wavespeed - velocity1_star ) -  
+                                 left_density * left_velocity1 * ( left_wavespeed - left_velocity1 );
+   double left_pressure12_star = left_pressure12 + left_density_star * velocity2_star * ( left_wavespeed - velocity1_star ) -  
+                                 left_density * left_velocity2 * ( left_wavespeed - left_velocity1 );
+   double left_energy11_star = ( - velocity1_star * left_pressure11_star + left_velocity1 * left_pressure11 + left_state(3) * (left_velocity1 
+                               - left_wavespeed ) ) / ( velocity1_star - left_wavespeed );
+   double left_energy12_star = ( - velocity1_star * left_pressure12_star - velocity2_star * left_pressure11_star + left_velocity1 * 
+                                left_pressure12 + left_velocity2 * left_pressure11 ) / ( 2.0 * ( velocity1_star - left_wavespeed ) ) + 
+                                left_state(4) * ( left_velocity1 - left_wavespeed ) / ( velocity1_star - left_wavespeed );
+   double left_energy22_star =  ( - velocity2_star * left_pressure12_star + left_velocity2 * left_pressure12 + left_state(5) * 
+                                (left_velocity1 - left_wavespeed ) ) / ( velocity1_star - left_wavespeed );
+   // double left_pressure22_star = 2.0 * left_energy22_star - left_density_star * velocity2_star * velocity2_star;
+
+   // right star states
+   double right_density_star = right_density * ( right_velocity1 - right_wavespeed ) / ( velocity1_star - right_wavespeed );
+   double right_pressure11_star = right_pressure11 + right_density_star * velocity1_star * ( right_wavespeed - velocity1_star ) -  
+                                 right_density * right_velocity1 * ( right_wavespeed - right_velocity1 );
+   double right_pressure12_star = right_pressure12 + right_density_star * velocity2_star * ( right_wavespeed - velocity1_star ) -  
+                                 right_density * right_velocity2 * ( right_wavespeed - right_velocity1 );
+   double right_energy11_star = ( - velocity1_star * right_pressure11_star + right_velocity1 * right_pressure11 + right_state(3) * 
+                                (right_velocity1 - right_wavespeed ) ) / ( velocity1_star - right_wavespeed );
+   double right_energy12_star = ( - velocity1_star * right_pressure12_star - velocity2_star * right_pressure11_star + right_velocity1 * 
+                                right_pressure12 + right_velocity2 * right_pressure11 ) / ( 2.0 * ( velocity1_star - right_wavespeed ) ) + 
+                                right_state(4) * ( right_velocity1 - right_wavespeed ) / ( velocity1_star - right_wavespeed );
+   double right_energy22_star =  ( - velocity2_star * right_pressure12_star + right_velocity2 * right_pressure12 + right_state(5) * 
+                                (right_velocity1 - right_wavespeed ) ) / ( velocity1_star - right_wavespeed );
+   // double right_pressure22_star = 2.0 * right_energy22_star - right_density_star * velocity2_star * velocity2_star;
+ 
+   
+   if (left_wavespeed >= 0.0)
+      flux = left_flux;
+   else if (left_wavespeed <= 0.0 && velocity1_star >= 0.0)
+   {
+      Vector<double> left_state_star(n_var); 
+      left_state_star(0) = left_density_star;
+      left_state_star(1) = left_density_star * velocity1_star;
+      left_state_star(2) = left_density_star * velocity2_star;
+      left_state_star(3) = left_energy11_star;
+      left_state_star(4) = left_energy12_star;
+      left_state_star(5) = left_energy22_star;  
+      
+      for(unsigned int i=0; i<n_var; ++i)
+         flux(i) = left_flux(i) + left_wavespeed * ( left_state_star(i) - left_state(i) );
+    }
+   else if (velocity1_star <= 0.0 && right_wavespeed >= 0.0)
+   {
+      Vector<double> right_state_star(n_var);
+      right_state_star(0) = right_density_star;
+      right_state_star(1) = right_density_star * velocity1_star;
+      right_state_star(2) = right_density_star * velocity2_star;
+      right_state_star(3) = right_energy11_star;
+      right_state_star(4) = right_energy12_star;
+      right_state_star(5) = right_energy22_star; 
+
+      for(unsigned int i=0; i<n_var; ++i)
+         flux(i) = right_flux(i) + right_wavespeed * ( right_state_star(i) - right_state(i) );
+    }
+   else if (right_wavespeed >= 0.0)
+      flux = right_flux;
+   else
+   {
+      std::cout << "Error in computing HLLC flux !!!\n";
+      abort ();
+   }
+}
+
+
 //------------------------------------------------------------------------------
 // Compute flux across cell faces
 //------------------------------------------------------------------------------
@@ -727,6 +969,9 @@ void numerical_flux (const FluxType& flux_type,
    {
       case lxf: // Lax-Friedrich flux
          LaxFlux (left_state, right_state, flux);
+         break;
+      case hllc: // HLLC Flux
+         HLLCFlux (left_state, right_state, flux);
          break;
          
       default:
