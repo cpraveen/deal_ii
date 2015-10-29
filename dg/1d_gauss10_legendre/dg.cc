@@ -1318,6 +1318,8 @@ void Gauss10<dim>::apply_limiter_TVB ()
 {
    if(fe.degree == 0) return;
    
+   static const double sqrt_3 = sqrt(3.0);
+   
    QTrapez<dim>  quadrature_formula;
    
    FEValues<dim> fe_values (fe, quadrature_formula, update_values);
@@ -1325,21 +1327,20 @@ void Gauss10<dim>::apply_limiter_TVB ()
                        momentum2_face_values(2), energy11_face_values(2),
                        energy12_face_values(2), energy22_face_values(2);
    
-   const unsigned int   dofs_per_cell = fe.dofs_per_cell;   
+   const unsigned int   dofs_per_cell = fe.dofs_per_cell;
    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
    
-   typename DoFHandler<dim>::active_cell_iterator 
+   typename DoFHandler<dim>::active_cell_iterator
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
    
-   std::vector<double> db(n_var), df(n_var), DB(n_var), DF(n_var);
-   std::vector<double> dl(n_var), dr(n_var);
+   std::vector<double> db(n_var), df(n_var), dc(n_var), DC(n_var);
    double density_left, density_right;
    double momentum1_left, momentum1_right;
    double momentum2_left, momentum2_right;
    double energy11_left, energy11_right;
    double energy12_left, energy12_right;
-   double energy22_left, energy22_right; 
+   double energy22_left, energy22_right;
    
    for (unsigned int c=0; c<n_cells; ++c, ++cell)
    {
@@ -1350,7 +1351,7 @@ void Gauss10<dim>::apply_limiter_TVB ()
       fe_values.get_function_values(momentum2, momentum2_face_values);
       fe_values.get_function_values(energy11, energy11_face_values);
       fe_values.get_function_values(energy12, energy12_face_values);
-      fe_values.get_function_values(energy22, energy22_face_values);  
+      fe_values.get_function_values(energy22, energy22_face_values);
       
       unsigned int lc = (c==0) ? n_cells-1 : c-1;
       unsigned int rc = (c==n_cells-1) ? 0 : c+1;
@@ -1381,14 +1382,14 @@ void Gauss10<dim>::apply_limiter_TVB ()
          momentum2_left = momentum2_average[c-1];
          energy11_left = energy11_average[c-1];
          energy12_left = energy12_average[c-1];
-         energy22_left = energy22_average[c-1]; 
+         energy22_left = energy22_average[c-1];
          
          density_right = density_average[c];
          if(rbc_reflect)
             momentum1_right = -momentum1_average[c];
          else
             momentum1_right = momentum1_average[c];
-         momentum2_right = momentum2_average[c]; 
+         momentum2_right = momentum2_average[c];
          energy11_right = energy11_average[c];
          energy12_right = energy12_average[c];
          energy22_right = energy22_average[c];
@@ -1400,7 +1401,7 @@ void Gauss10<dim>::apply_limiter_TVB ()
          momentum2_left = momentum2_average[lc];
          energy11_left = energy11_average[lc];
          energy12_left = energy12_average[lc];
-         energy22_left = energy22_average[lc]; 
+         energy22_left = energy22_average[lc];
          
          density_right = density_average[rc];
          momentum1_right = momentum1_average[rc];
@@ -1413,43 +1414,37 @@ void Gauss10<dim>::apply_limiter_TVB ()
       // density
       db[0] = density_average[c] - density_left;
       df[0] = density_right - density_average[c];
-      DB[0] = density_average[c] - density_face_values[0];
-      DF[0] = density_face_values[1] - density_average[c];
+      dc[0] = density(local_dof_indices[1]) * sqrt_3;
       
       // momentum1
       db[1] = momentum1_average[c] - momentum1_left;
       df[1] = momentum1_right - momentum1_average[c];
-      DB[1] = momentum1_average[c] - momentum1_face_values[0];
-      DF[1] = momentum1_face_values[1] - momentum1_average[c];
-
+      dc[1] = momentum1(local_dof_indices[1]) * sqrt_3;
+      
       // momentum2
       db[2] = momentum2_average[c] - momentum2_left;
       df[2] = momentum2_right - momentum2_average[c];
-      DB[2] = momentum2_average[c] - momentum2_face_values[0];
-      DF[2] = momentum2_face_values[1] - momentum2_average[c];
+      dc[2] = momentum2(local_dof_indices[1]) * sqrt_3;
       
       // energy11
       db[3] = energy11_average[c] - energy11_left;
       df[3] = energy11_right - energy11_average[c];
-      DB[3] = energy11_average[c] - energy11_face_values[0];
-      DF[3] = energy11_face_values[1] - energy11_average[c];
-
+      dc[3] = energy11(local_dof_indices[1]) * sqrt_3;
+      
       // energy12
       db[4] = energy12_average[c] - energy12_left;
       df[4] = energy12_right - energy12_average[c];
-      DB[4] = energy12_average[c] - energy12_face_values[0];
-      DF[4] = energy12_face_values[1] - energy12_average[c];
-
+      dc[4] = energy12(local_dof_indices[1]) * sqrt_3;
+      
       // energy22
       db[5] = energy22_average[c] - energy22_left;
       df[5] = energy22_right - energy22_average[c];
-      DB[5] = energy22_average[c] - energy22_face_values[0];
-      DF[5] = energy22_face_values[1] - energy22_average[c];
-
-       double R[n_var][n_var], Ri[n_var][n_var];
+      dc[5] = energy22(local_dof_indices[1]) * sqrt_3;
+      
+      double R[n_var][n_var], Ri[n_var][n_var];
       if(lim_char)
       {
-         EigMat(density_average[c], 
+         EigMat(density_average[c],
                 momentum1_average[c],
                 momentum2_average[c],
                 energy11_average[c],
@@ -1458,35 +1453,32 @@ void Gauss10<dim>::apply_limiter_TVB ()
                 R, Ri);
          Multi(Ri, db);
          Multi(Ri, df);
-         Multi(Ri, DB);
-         Multi(Ri, DF);
+         Multi(Ri, dc);
       }
-
+      
       double diff = 0;
       for(unsigned int i=0; i<n_var; ++i)
       {
-         dl[i] = minmod (DB[i], beta*db[i], beta*df[i]);
-         dr[i] = minmod (DF[i], beta*db[i], beta*df[i]);
-         diff += std::fabs(dl[i] - DB[i]) + std::fabs(dr[i]-DF[i]);
+         DC[i] = minmod (dc[i], beta*db[i], beta*df[i]);
+         diff += std::fabs(dc[i] - DC[i]);
       }
       diff /= (2*n_var);
-
+      
       // If diff is nonzero, then limiter is active.
       // Then we keep only linear part
-      if(diff > 1.0e-10)
+      if(diff > 1.0e-6)
       {
-         if(lim_char) 
+         if(lim_char)
          {
-            Multi(R, dl);
-            Multi(R, dr);
+            Multi(R, DC);
          }
-         density(local_dof_indices[1])  = 0.5*(dl[0] + dr[0]) / fe_values.shape_value(1,1);
-         momentum1(local_dof_indices[1]) = 0.5*(dl[1] + dr[1]) / fe_values.shape_value(1,1);
-         momentum2(local_dof_indices[1]) = 0.5*(dl[2] + dr[2]) / fe_values.shape_value(1,1);
-         energy11(local_dof_indices[1])  = 0.5*(dl[3] + dr[3]) / fe_values.shape_value(1,1);
-         energy12(local_dof_indices[1])  = 0.5*(dl[4] + dr[4]) / fe_values.shape_value(1,1);
-         energy22(local_dof_indices[1])  = 0.5*(dl[5] + dr[5]) / fe_values.shape_value(1,1);
-
+         density(local_dof_indices[1])   = DC[0] / sqrt_3;
+         momentum1(local_dof_indices[1]) = DC[1] / sqrt_3;
+         momentum2(local_dof_indices[1]) = DC[2] / sqrt_3;
+         energy11(local_dof_indices[1])  = DC[3] / sqrt_3;
+         energy12(local_dof_indices[1])  = DC[4] / sqrt_3;
+         energy22(local_dof_indices[1])  = DC[5] / sqrt_3;
+         
          // Higher dofs are set to zero
          for(unsigned int i=2; i<dofs_per_cell; ++i)
          {
@@ -1494,13 +1486,14 @@ void Gauss10<dim>::apply_limiter_TVB ()
             momentum1(local_dof_indices[i]) = 0.0;
             momentum2(local_dof_indices[i]) = 0.0;
             energy11(local_dof_indices[i])  = 0.0;
-            energy12(local_dof_indices[i])  = 0.0; 
+            energy12(local_dof_indices[i])  = 0.0;
             energy22(local_dof_indices[i])  = 0.0;
          }
       }
       
    }
 }
+
 /*
 //------------------------------------------------------------------------------
 // Apply moment limiter of Biswas, Devine, Flaherty
