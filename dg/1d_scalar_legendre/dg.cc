@@ -23,7 +23,7 @@
 #include <fstream>
 #include <iostream>
 
-#include <base/logstream.h>
+#include <deal.II/base/logstream.h>
 
 #define sign(a)   ((a>0.0) ? 1 : -1)
 
@@ -100,8 +100,8 @@ public:
    test_case (test_case)
    {}
    
-   virtual void value (const Point<dim>   &p,
-                       double& values) const;
+    double value (const Point<dim> &p,
+                  const unsigned int component=0) const;
    
 private:
    TestCase test_case;
@@ -109,27 +109,30 @@ private:
 
 // Initial condition
 template<int dim>
-void InitialCondition<dim>::value (const Point<dim>   &p,
-                                   double& values) const
+double InitialCondition<dim>::value (const Point<dim> &p,
+                                     const unsigned int component) const
 {
    double x = p[0];
+   double value = 0;
    
    // test case: sine
    if(test_case == sine)
    {
-      values = -std::sin (M_PI * x);
+      value = -std::sin (M_PI * x);
    }
    else if(test_case == hat)
    {
       if(std::fabs(x) < 0.25)
-         values = 1.0;
+         value = 1.0;
       else
-         values = 0.0;
+         value = 0.0;
    }
    else
    {
       AssertThrow(false, ExcMessage("Unknown test case"));
    }
+   
+   return value;
 }
 
 //------------------------------------------------------------------------------
@@ -158,12 +161,10 @@ template<int dim>
 double Solution<dim>::value (const Point<dim>   &p,
                              const unsigned int) const
 {
-   double values;
    Point<dim> pp(p);
    pp[0] -= final_time;
    InitialCondition<dim> initial_condition(test_case);
-   initial_condition.value(pp, values);
-   return values;
+   return initial_condition.value(pp);
 }
 
 
@@ -509,8 +510,7 @@ void ScalarProblem<dim>::initialize ()
       for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
       {
          // Get primitive variable at quadrature point
-         initial_condition.value(fe_values.quadrature_point(q_point),
-                                 initial_value);
+         initial_value = initial_condition.value(fe_values.quadrature_point(q_point));
          for (unsigned int i=0; i<dofs_per_cell; ++i)
          {
             cell_rhs(i) += fe_values.shape_value (i, q_point) *
