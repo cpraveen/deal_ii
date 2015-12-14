@@ -19,6 +19,7 @@
 //
 // Works only on square cartesian cells
 
+#include <deal.II/algorithms/any_data.h>
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/function.h>
 #include <deal.II/lac/vector.h>
@@ -339,19 +340,19 @@ void Step12<dim>::setup_system ()
             neighbor = cell->neighbor(face_no);
             Assert(neighbor->level() == cell->level() || neighbor->level() == cell->level()-1,
                    ExcInternalError());
-            Point<dim> dr = neighbor->center() - cell->center();
-            if(dr(0) < -0.5*dx)
+            Tensor<1,dim> dr = neighbor->center() - cell->center();
+            if(dr[0] < -0.5*dx)
                lcell[c] = neighbor;
-            else if(dr(0) > 0.5*dx)
+            else if(dr[0] > 0.5*dx)
                rcell[c] = neighbor;
-            else if(dr(1) < -0.5*dx)
+            else if(dr[1] < -0.5*dx)
                bcell[c] = neighbor;
-            else if(dr(1) > 0.5*dx)
+            else if(dr[1] > 0.5*dx)
                tcell[c] = neighbor;
             else
             {
                std::cout << "Did not find all neighbours\n";
-               std::cout << "dx, dy = " << dr(0) << "  " << dr(1) << std::endl;
+               std::cout << "dx, dy = " << dr[0] << "  " << dr[1] << std::endl;
                exit(0);
             }
          }
@@ -482,8 +483,8 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
                                         n_gauss_points);
 
    // Add solution vector to info_box
-   NamedData< Vector<double>* > solution_data;
-   solution_data.add (&solution, "solution");
+   AnyData solution_data;
+   solution_data.add< Vector<double>* >(&solution, "solution");
    info_box.cell_selector.add     ("solution", true, false, false);
    info_box.boundary_selector.add ("solution", true, false, false);
    info_box.face_selector.add     ("solution", true, false, false);
@@ -494,12 +495,11 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
    info_box.add_update_flags_boundary (update_values);
    info_box.add_update_flags_face     (update_values);
 
-   info_box.initialize (fe, mapping, solution_data);
+   info_box.initialize (fe, mapping, solution_data, Vector<double>());
    
    // Attach rhs vector to assembler
-   NamedData< Vector<double>* > rhs;
-   Vector<double>* data = &right_hand_side;
-   rhs.add (data, "RHS");
+   AnyData rhs;
+   rhs.add< Vector<double>* > (&right_hand_side, "RHS");
    assembler.initialize (rhs);
 }
 
@@ -1122,8 +1122,8 @@ void Step12<dim>::output_results (double time)
       data_out.add_data_vector (average, "average", DataOut<dim>::type_cell_data);
       
       compute_shock_indicator ();
-      data_out.add_data_vector (shock_indicator, "shock_indicator");
-      data_out.add_data_vector (jump_indicator, "jump_indicator");
+      data_out.add_data_vector (shock_indicator, "shock_indicator", DataOut<dim>::type_cell_data);
+      data_out.add_data_vector (jump_indicator, "jump_indicator", DataOut<dim>::type_cell_data);
       
       data_out.build_patches (1);
       DataOutBase::VtkFlags flags(time, cycle);
@@ -1164,9 +1164,8 @@ int main ()
 {
    try
    {
-      MultithreadInfo  multithread_info;
-      std::cout << "Number of threads = " 
-                << multithread_info.n_threads() << std::endl;
+      std::cout << "Number of threads = "
+                << MultithreadInfo::n_threads() << std::endl;
       unsigned int degree = 1;
       LimiterType limiter_type = none;
       TestCase test_case = expo;
