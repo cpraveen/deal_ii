@@ -14,8 +14,8 @@ using namespace dealii;
 int main()
 {
    
-   const std::string in_mesh_filename = "rae2822/rae2822.msh";
-   const std::string cad_file_name = "rae2822/rae2822.igs";
+   const std::string in_mesh_filename = "../rae2822/rae2822.msh";
+   const std::string cad_file_name = "../rae2822/rae2822.igs";
    
    // read iges file
    TopoDS_Shape airfoil = OpenCASCADE::read_IGES(cad_file_name, 1.0);

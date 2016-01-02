@@ -5,7 +5,7 @@ Merge "rae2822.igs";
 //Background Field = 1;
 
 Transfinite Line {1} = 50;
-Transfinite Line {2} = 200;
+Transfinite Line {2} = 100;
 
 Mesh.Algorithm = 8;
 Mesh.RecombineAll = 1;
