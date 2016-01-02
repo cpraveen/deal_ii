@@ -6,7 +6,7 @@ Inside ```occ/rae2822``` run
 ```
 gmsh -2 rae2822.geo
 ```
-This generates the `rae2822.msh``` file. Inside ```occ/refine``` do
+This generates the ```rae2822.msh``` file. Inside ```occ/refine``` do
 ```
 cmake .
 make
