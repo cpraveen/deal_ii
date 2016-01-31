@@ -129,13 +129,13 @@ void InitialCondition<dim>::value_list(const std::vector<Point<dim> > &points,
    Assert(values.size()==points.size(),
           ExcDimensionMismatch(values.size(),points.size()));
    
-   if(test_case == expo)
+   if(test_case == expo) // smooth exponential function
       for (unsigned int i=0; i<values.size(); ++i)
       {
          double r2 = std::pow(points[i](0)-0.5, 2.0) + std::pow(points[i](1), 2.0);
          values[i] = 1.0 + exp(-50.0*r2);
       }
-   else if(test_case == circ)
+   else if(test_case == circ) // discontinuous circular function
       for (unsigned int i=0; i<values.size(); ++i)
       {
          double r2 = std::pow(points[i](0)-0.5, 2.0) + std::pow(points[i](1), 2.0);
@@ -144,7 +144,7 @@ void InitialCondition<dim>::value_list(const std::vector<Point<dim> > &points,
          else
             values[i] = 1.0;
       }
-   else if(test_case == square)
+   else if(test_case == square) // discontinuous square function
       for (unsigned int i=0; i<values.size(); ++i)
       {
          const Point<dim>& p = points[i];
@@ -214,7 +214,10 @@ class Step12
    public:
       Step12 (unsigned int degree, 
               LimiterType  limiter_type,
-              TestCase     test_case);
+              TestCase     test_case,
+              unsigned int n_points,
+              unsigned int n_refine_init=0,
+              unsigned int n_refine_interval=0);
       void run ();
       
    private:
@@ -256,6 +259,7 @@ class Step12
       double               cfl;
       LimiterType          limiter_type;
       TestCase             test_case;
+      unsigned int         n_points, n_refine_init, n_refine_interval;
       double               sol_min, sol_max;
       double               h_min, h_max;
    
@@ -277,7 +281,10 @@ class Step12
 template <int dim>
 Step12<dim>::Step12 (unsigned int degree,
                      LimiterType  limiter_type,
-                     TestCase     test_case)
+                     TestCase     test_case,
+                     unsigned int n_points,
+                     unsigned int n_refine_init,
+                     unsigned int n_refine_interval)
       :
       mapping (),
       degree (degree),
@@ -286,7 +293,10 @@ Step12<dim>::Step12 (unsigned int degree,
       fe_cell(0),
       dof_handler_cell (triangulation),
       limiter_type (limiter_type),
-      test_case (test_case)
+      test_case (test_case),
+      n_points (n_points),
+      n_refine_init (n_refine_init),
+      n_refine_interval (n_refine_interval)
 {
    cfl = 0.9/(2.0*degree + 1.0);
 }
@@ -958,12 +968,12 @@ void Step12<dim>::solve ()
       
       ++iter; time += dt;
 
-//      if(iter==1 || std::fmod(iter,10)==0)
-//      {
-//         compute_shock_indicator ();
-//         refine_grid ();
-//         compute_dt ();
-//      }
+      if(iter==1 || std::fmod(iter,n_refine_interval)==0)
+      {
+         compute_shock_indicator ();
+         refine_grid ();
+         compute_dt ();
+      }
       
       std::cout << "It=" << iter
                 << ", t= " << time
@@ -1140,18 +1150,17 @@ void Step12<dim>::output_results (double time)
 template <int dim>
 void Step12<dim>::run ()
 {
-   GridGenerator::subdivided_hyper_cube (triangulation,100,-1.0,+1.0);
+   GridGenerator::subdivided_hyper_cube (triangulation,n_points,-1.0,+1.0);
    setup_system ();
    set_initial_condition ();
    
    // Initial refinements
-//   unsigned int n_refine_init = 3;
-//   for(unsigned int i=0; i<n_refine_init; ++i)
-//   {
-//      compute_shock_indicator ();
-//      refine_grid_initial ();
-//      set_initial_condition();
-//   }
+   for(unsigned int i=0; i<n_refine_init; ++i)
+   {
+      compute_shock_indicator ();
+      refine_grid_initial ();
+      set_initial_condition();
+   }
    output_results(0);
    
    solve ();
@@ -1169,8 +1178,16 @@ int main ()
       unsigned int degree = 1;
       LimiterType limiter_type = none;
       TestCase test_case = expo;
+      unsigned int n_points = 100;
+      unsigned int n_refine_init = 0;
+      unsigned int n_refine_interval = 0;
       Mlim = 0.0;
-      Step12<2> dgmethod(degree, limiter_type, test_case);
+      Step12<2> dgmethod(degree,
+                         limiter_type,
+                         test_case,
+                         n_points,
+                         n_refine_init,
+                         n_refine_interval);
       dgmethod.run ();
    }
    catch (std::exception &exc)
