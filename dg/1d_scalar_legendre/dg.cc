@@ -42,7 +42,7 @@ const double b_rk[3] = {1.0, 1.0/4.0, 2.0/3.0};
 
 // Numerical flux functions
 enum FluxType {central, upwind};
-enum TestCase {sine, hat};
+enum TestCase {sine, hat, trihat};
 enum LimiterType {none, tvd};
 
 //------------------------------------------------------------------------------
@@ -127,6 +127,17 @@ double InitialCondition<dim>::value (const Point<dim> &p,
       else
          value = 0.0;
    }
+   else if(test_case == trihat)
+   {
+      while(x >  1.0) x = x - 2.0;
+      while(x < -1.0) x = x + 2.0;
+      if(std::fabs(x) > 0.5)
+         value = 0.0;
+      else if(x < 0.0)
+         value = 1.0 + 2.0*x;
+      else
+         value = 1.0 - 2.0*x;
+   }
    else
    {
       AssertThrow(false, ExcMessage("Unknown test case"));
@@ -184,6 +195,17 @@ Tensor<1,dim> Solution<dim>::gradient (const Point<dim>   &p,
    else if(test_case == hat)
    {
       values[0] = 0;
+   }
+   else if(test_case == trihat)
+   {
+      while(x >  1.0) x = x - 2.0;
+      while(x < -1.0) x = x + 2.0;
+      if(std::fabs(x) > 0.5)
+         values[0] = 0.0;
+      else if(x < 0.0)
+         values[0] = 2.0;
+      else
+         values[0] = -2.0;
    }
    else
    {
@@ -337,6 +359,11 @@ ScalarProblem<dim>::ScalarProblem (Parameter param,
       xmax    = +1.0;
    }
    else if(test_case == hat)
+   {
+      xmin    = -1.0;
+      xmax    = +1.0;
+   }
+   else if(test_case == trihat)
    {
       xmin    = -1.0;
       xmax    = +1.0;
