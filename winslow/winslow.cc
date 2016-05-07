@@ -22,6 +22,7 @@
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/manifold.h>
 #include <deal.II/grid/manifold_lib.h>
+#include <deal.II/grid/grid_out.h>
 
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/sparse_matrix.h>
@@ -58,6 +59,17 @@ void g_matrix (const Tensor<1,dim>& Dx, const Tensor<1,dim>& Dy, Tensor<2,dim>& 
 }
 
 template <int dim>
+Tensor<2,dim> ginvert (const Tensor<2,dim>& g)
+{
+   Tensor<2,dim> gi;
+   gi[0][0] = g[1][1];
+   gi[1][1] = g[0][0];
+   gi[0][1] = -g[0][1];
+   gi[1][0] = -g[1][0];
+   return gi;
+}
+
+template <int dim>
 class Winslow
 {
 public:
@@ -68,17 +80,19 @@ private:
    void initialize_grid ();
    void setup_system ();
    void assemble_mass_matrix ();
+   void assemble_alpha_rhs ();
    void assemble_system_matrix_rhs ();
    void set_initial_condition ();
    void map_boundary_values ();
    void solve ();
    void solve_direct ();
+   void solve_alpha ();
    double compute_change ();
    void output ();
    
    Triangulation<dim> triangulation;
-   FE_Q<dim> fe;
-   DoFHandler<dim> dof_handler;
+   FE_Q<dim>          fe;
+   DoFHandler<dim>    dof_handler;
    
    Vector<double> x, y;
    Vector<double> x_old, y_old;
@@ -150,9 +164,15 @@ void Winslow<dim>::initialize_grid ()
    static const SphericalManifold<dim> boundary;
    triangulation.set_all_manifold_ids_on_boundary(0);
    triangulation.set_manifold (0, boundary);
+   triangulation.refine_global(3);
    
    std::cout << "Number of cell = " << triangulation.n_active_cells();
    std::cout << std::endl;
+   
+   std::ofstream out ("grid.vtk");
+   GridOut grid_out;
+   grid_out.write_vtk (triangulation, out);
+   std::cout << "Grid written to grid.vtk" << std::endl;
 }
 
 //------------------------------------------------------------------------------
@@ -219,9 +239,15 @@ void Winslow<dim>::map_boundary_values()
                }
             }
             // Remove the manifold
-            cell->face(f)->set_manifold_id (numbers::flat_manifold_id);
+            //cell->face(f)->set_manifold_id (numbers::flat_manifold_id);
          }
    }
+   
+   static const FlatManifold<dim> flat_boundary;
+   triangulation.set_all_manifold_ids_on_boundary(0);
+   triangulation.set_manifold (0, flat_boundary);
+   
+   std::cout << "Number of boundary points = " << boundary_values_x.size() << std::endl;
    
 //   for (const auto &pair : boundary_values_x)
 //   {
@@ -234,51 +260,43 @@ void Winslow<dim>::map_boundary_values()
 
 //------------------------------------------------------------------------------
 template <int dim>
-void Winslow<dim>::assemble_system_matrix_rhs ()
+void Winslow<dim>::assemble_alpha_rhs ()
 {
-   system_matrix = 0;
-   rhs_x         = 0;
-   rhs_y         = 0;
    rhs_ax        = 0;
    rhs_ay        = 0;
    
-   const QGauss<dim>  quadrature_formula(fe.degree+1);
+   // Needed for cell assembly
+   const QGauss<dim>  quadrature_formula(2*fe.degree+1);
    FEValues<dim> fe_values (fe, quadrature_formula,
                             update_values | update_gradients | update_JxW_values);
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
    const unsigned int   n_q_points    = quadrature_formula.size();
-   FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
    Vector<double>  cell_rhs_ax (dofs_per_cell);
    Vector<double>  cell_rhs_ay (dofs_per_cell);
    std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
-   
-   std::vector<double> ax_values (n_q_points);
-   std::vector<double> ay_values (n_q_points);
+
    std::vector<Tensor<1,dim>> Dx_values (n_q_points, Tensor<1,dim>());
    std::vector<Tensor<1,dim>> Dy_values (n_q_points, Tensor<1,dim>());
    
    // Needed for face assembly
-   const QGauss<dim-1>  face_quadrature_formula(fe.degree+1);
+   const QGauss<dim-1>  face_quadrature_formula(2*fe.degree+1);
    FEFaceValues<dim> fe_face_values (fe, face_quadrature_formula,
                                      update_values | update_gradients |
                                      update_normal_vectors | update_JxW_values);
    const unsigned int   n_face_q_points    = face_quadrature_formula.size();
    std::vector<Tensor<1,dim>> Dx_face_values (n_face_q_points, Tensor<1,dim>());
    std::vector<Tensor<1,dim>> Dy_face_values (n_face_q_points, Tensor<1,dim>());
-
+   
    typename DoFHandler<dim>::active_cell_iterator
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
    for (; cell!=endc; ++cell)
    {
-      cell_matrix = 0;
       cell_rhs_ax = 0;
       cell_rhs_ay = 0;
       
       fe_values.reinit (cell);
-      
-      fe_values.get_function_values (ax, ax_values);
-      fe_values.get_function_values (ay, ay_values);
+
       fe_values.get_function_gradients (x, Dx_values);
       fe_values.get_function_gradients (y, Dy_values);
       
@@ -286,19 +304,10 @@ void Winslow<dim>::assemble_system_matrix_rhs ()
       {
          Tensor<2,dim> g;
          g_matrix (Dx_values[q], Dy_values[q], g);
-         const Tensor<2,dim> gi = invert(g);
-
+         const Tensor<2,dim> gi = ginvert(g);
+         
          for(unsigned int i=0; i<dofs_per_cell; ++i)
          {
-            for(unsigned int j=0; j<dofs_per_cell; ++j)
-            {
-               cell_matrix(i,j) += ((gi * fe_values.shape_grad(j,q)) * fe_values.shape_grad(i,q)
-                                   +
-                                    (ax_values[q] * fe_values.shape_grad(j,q)[0] +
-                                     ay_values[q] * fe_values.shape_grad(j,q)[1]) *
-                                   fe_values.shape_value(i,q)) * fe_values.JxW(q);
-            }
-            
             cell_rhs_ax(i) += (gi[0][0] * fe_values.shape_grad(i,q)[0] +
                                gi[1][0] * fe_values.shape_grad(i,q)[1]) * fe_values.JxW(q);
             cell_rhs_ay(i) += (gi[0][1] * fe_values.shape_grad(i,q)[0] +
@@ -318,7 +327,7 @@ void Winslow<dim>::assemble_system_matrix_rhs ()
             {
                Tensor<2,dim> g;
                g_matrix (Dx_face_values[q], Dy_face_values[q], g);
-               const Tensor<2,dim> gi = invert(g);
+               const Tensor<2,dim> gi = ginvert(g);
                
                for(unsigned int i=0; i<dofs_per_cell; ++i)
                {
@@ -338,12 +347,89 @@ void Winslow<dim>::assemble_system_matrix_rhs ()
       {
          rhs_ax(local_dof_indices[i]) += cell_rhs_ax(i);
          rhs_ay(local_dof_indices[i]) += cell_rhs_ay(i);
-         
+      }
+   }
+}
+
+//------------------------------------------------------------------------------
+template <int dim>
+void Winslow<dim>::solve_alpha ()
+{
+   static int first_time = 1;
+   
+   // solve for ax, ay
+   if(first_time)
+   {
+      std::cout << "LU decomposition of mass matrix\n";
+      solver_mass_matrix.initialize(mass_matrix);
+      first_time = 0;
+   }
+   solver_mass_matrix.vmult (ax, rhs_ax);
+   solver_mass_matrix.vmult (ay, rhs_ay);
+   
+}
+
+//------------------------------------------------------------------------------
+template <int dim>
+void Winslow<dim>::assemble_system_matrix_rhs ()
+{
+   system_matrix = 0;
+   rhs_x         = 0;
+   rhs_y         = 0;
+   
+   const QGauss<dim>  quadrature_formula(2*fe.degree+1);
+   FEValues<dim> fe_values (fe, quadrature_formula,
+                            update_values | update_gradients | update_JxW_values);
+   const unsigned int   dofs_per_cell = fe.dofs_per_cell;
+   const unsigned int   n_q_points    = quadrature_formula.size();
+   FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
+   std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
+   
+   std::vector<double> ax_values (n_q_points);
+   std::vector<double> ay_values (n_q_points);
+   std::vector<Tensor<1,dim>> Dx_values (n_q_points, Tensor<1,dim>());
+   std::vector<Tensor<1,dim>> Dy_values (n_q_points, Tensor<1,dim>());
+
+   typename DoFHandler<dim>::active_cell_iterator
+      cell = dof_handler.begin_active(),
+      endc = dof_handler.end();
+   for (; cell!=endc; ++cell)
+   {
+      cell_matrix = 0;
+      
+      fe_values.reinit (cell);
+      
+      fe_values.get_function_values (ax, ax_values);
+      fe_values.get_function_values (ay, ay_values);
+      fe_values.get_function_gradients (x, Dx_values);
+      fe_values.get_function_gradients (y, Dy_values);
+      
+      for(unsigned int q=0; q<n_q_points; ++q)
+      {
+         Tensor<2,dim> g;
+         g_matrix (Dx_values[q], Dy_values[q], g);
+         const Tensor<2,dim> gi = ginvert(g);
+
+         for(unsigned int i=0; i<dofs_per_cell; ++i)
+         {
+            for(unsigned int j=0; j<dofs_per_cell; ++j)
+            {
+               cell_matrix(i,j) += ((gi * fe_values.shape_grad(j,q)) * fe_values.shape_grad(i,q)
+                                   +
+                                    (ax_values[q] * fe_values.shape_grad(j,q)[0] +
+                                     ay_values[q] * fe_values.shape_grad(j,q)[1]) *
+                                   fe_values.shape_value(i,q)) * fe_values.JxW(q);
+            }
+         }
+      }
+      
+      // Add cell_matrix to system_matrix
+      cell->get_dof_indices(local_dof_indices);
+      for(unsigned int i=0; i<dofs_per_cell; ++i)
          for(unsigned int j=0; j<dofs_per_cell; ++j)
             system_matrix.add(local_dof_indices[i],
                               local_dof_indices[j],
                               cell_matrix(i,j));
-      }
    }
    
    system_matrix_x.copy_from(system_matrix);
@@ -354,17 +440,6 @@ void Winslow<dim>::assemble_system_matrix_rhs ()
 template <int dim>
 void Winslow<dim>::solve_direct ()
 {
-   static int first_time = 1;
-
-   // solve for ax, ay
-   if(first_time)
-   {
-      solver_mass_matrix.initialize(mass_matrix);
-      first_time = 0;
-   }
-   solver_mass_matrix.vmult (ax, rhs_ax);
-   solver_mass_matrix.vmult (ay, rhs_ay);
-   
    // solve x
    {
       MatrixTools::apply_boundary_values (boundary_values_x,
@@ -467,6 +542,8 @@ void Winslow<dim>::output ()
    data_out.attach_dof_handler (dof_handler);
    data_out.add_data_vector(x, "x");
    data_out.add_data_vector(y, "y");
+   data_out.add_data_vector(ax, "ax");
+   data_out.add_data_vector(ay, "ay");
    data_out.build_patches (fe.degree);
    
    std::string filename = "sol-" + Utilities::int_to_string(count, 2) + ".vtk";
@@ -489,13 +566,17 @@ void Winslow<dim>::run()
    output ();
    
    // start Picard iteration
-   const double RESTOL = 1.0e-8;
+   const double RESTOL = 1.0e-6;
    double res_norm = RESTOL + 1;
-   unsigned int iter = 0, max_iter = 10;
+   unsigned int iter = 0, max_iter = 20;
    while(res_norm > RESTOL && iter < max_iter)
    {
+      assemble_alpha_rhs ();
+      solve_alpha ();
       assemble_system_matrix_rhs ();
       solve_direct ();
+      //x -= x_old; x *= 0.1; x += x_old;
+      //y -= y_old; y *= 0.1; y += y_old;
       res_norm = compute_change ();
       ++iter;
       std::cout << iter << "  " << res_norm << std::endl;
@@ -508,6 +589,6 @@ void Winslow<dim>::run()
 //------------------------------------------------------------------------------
 int main ()
 {
-   Winslow<2> winslow (2);
+   Winslow<2> winslow (3);
    winslow.run ();
 }
