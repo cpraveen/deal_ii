@@ -62,10 +62,11 @@ template <int dim>
 Tensor<2,dim> ginvert (const Tensor<2,dim>& g)
 {
    Tensor<2,dim> gi;
-   gi[0][0] = g[1][1];
-   gi[1][1] = g[0][0];
-   gi[0][1] = -g[0][1];
-   gi[1][0] = -g[1][0];
+   double c = 1.0;
+   gi[0][0] =  c * g[1][1];
+   gi[1][1] =  c * g[0][0];
+   gi[0][1] = -c * g[0][1];
+   gi[1][0] = -c * g[1][0];
    return gi;
 }
 
@@ -164,7 +165,7 @@ void Winslow<dim>::initialize_grid ()
    static const SphericalManifold<dim> boundary;
    triangulation.set_all_manifold_ids_on_boundary(0);
    triangulation.set_manifold (0, boundary);
-   triangulation.refine_global(3);
+   triangulation.refine_global(2);
    
    std::cout << "Number of cell = " << triangulation.n_active_cells();
    std::cout << std::endl;
@@ -181,7 +182,7 @@ void Winslow<dim>::assemble_mass_matrix ()
 {
    std::cout << "Creating mass matrix\n";
    MatrixCreator::create_mass_matrix (dof_handler,
-                                      QGauss<dim>(fe.degree+1),
+                                      QGauss<dim>(2*fe.degree+1),
                                       mass_matrix);
 }
 
