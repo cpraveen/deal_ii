@@ -1,19 +1,10 @@
 /* ---------------------------------------------------------------------
- *
- * Copyright (C) 1999 - 2015 by the deal.II authors
- *
- * This file is part of the deal.II library.
- *
- * The deal.II library is free software; you can use it, redistribute
- * it, and/or modify it under the terms of the GNU Lesser General
- * Public License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- * The full text of the license can be found in the file LICENSE at
- * the top level of the deal.II distribution.
- *
- * ---------------------------------------------------------------------
-
- */
+Solve the Winslow equations using Picard iterations as in
+   Meire Fortunato, Per-Olof Persson
+   High-order unstructured curved mesh generation using the Winslow equations
+   Journal of Computational Physics 307 (2016) 1–14
+   http://dx.doi.org/10.1016/j.jcp.2015.11.020
+--------------------------------------------------------------------- */
 
 
 #include <deal.II/grid/tria.h>
@@ -233,7 +224,7 @@ void Winslow<dim>::map_boundary_values()
                // search if index exists in boundary map
                const unsigned int global_i = dof_indices[i];
                std::map<types::global_dof_index,double>::iterator it = boundary_values_x.find(global_i);
-               if(it == boundary_values_x.end())
+               if(it == boundary_values_x.end()) // Did not find index, so add it
                {
                   boundary_values_x.insert(std::pair<types::global_dof_index,double>(global_i,x(global_i)));
                   boundary_values_y.insert(std::pair<types::global_dof_index,double>(global_i,y(global_i)));
@@ -572,8 +563,10 @@ void Winslow<dim>::run()
    unsigned int iter = 0, max_iter = 20;
    while(res_norm > RESTOL && iter < max_iter)
    {
+      // solve ax, ay
       assemble_alpha_rhs ();
       solve_alpha ();
+      // solve x, y
       assemble_system_matrix_rhs ();
       solve_direct ();
       //x -= x_old; x *= 0.1; x += x_old;
