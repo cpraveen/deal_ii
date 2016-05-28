@@ -106,6 +106,9 @@ private:
    std::map<types::global_dof_index,double> boundary_values_y;
    
    SparseDirectUMFPACK  solver_mass_matrix;
+   
+   const QGauss<dim>   cell_quadrature;
+   const QGauss<dim-1> face_quadrature;
 };
 
 //------------------------------------------------------------------------------
@@ -113,7 +116,9 @@ template <int dim>
 Winslow<dim>::Winslow(unsigned int degree)
 :
 fe (QGaussLobatto<1>(degree+1)),
-dof_handler (triangulation)
+dof_handler (triangulation),
+cell_quadrature (2*fe.degree+1),
+face_quadrature (2*fe.degree+1)
 {
    
 }
@@ -174,7 +179,7 @@ void Winslow<dim>::assemble_mass_matrix ()
 {
    std::cout << "Creating mass matrix\n";
    MatrixCreator::create_mass_matrix (dof_handler,
-                                      QGauss<dim>(2*fe.degree+1),
+                                      cell_quadrature,
                                       mass_matrix);
 }
 
@@ -231,16 +236,17 @@ void Winslow<dim>::map_boundary_values()
                   boundary_values_y.insert(std::pair<types::global_dof_index,double>(global_i,y(global_i)));
                }
             }
-            // Remove the manifold
-            //cell->face(f)->set_manifold_id (numbers::flat_manifold_id);
          }
    }
    
+   // set all boundaries to be flat
    static const FlatManifold<dim> flat_boundary;
    triangulation.set_all_manifold_ids_on_boundary(0);
    triangulation.set_manifold (0, flat_boundary);
    
+   // save boundary points to file
    std::cout << "Number of boundary points = " << boundary_values_x.size() << std::endl;
+   std::cout << "Saving them to file bd.dat\n";
    std::ofstream bdpts ("bd.dat");
    for (const auto &pair : boundary_values_x)
    {
@@ -259,11 +265,10 @@ void Winslow<dim>::assemble_alpha_rhs ()
    rhs_ay        = 0;
    
    // Needed for cell assembly
-   const QGauss<dim>  quadrature_formula(2*fe.degree+1);
-   FEValues<dim> fe_values (fe, quadrature_formula,
+   FEValues<dim> fe_values (fe, cell_quadrature,
                             update_values | update_gradients | update_JxW_values);
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
-   const unsigned int   n_q_points    = quadrature_formula.size();
+   const unsigned int   n_q_points    = cell_quadrature.size();
    Vector<double>  cell_rhs_ax (dofs_per_cell);
    Vector<double>  cell_rhs_ay (dofs_per_cell);
    std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
@@ -272,11 +277,10 @@ void Winslow<dim>::assemble_alpha_rhs ()
    std::vector<Tensor<1,dim>> Dy_values (n_q_points, Tensor<1,dim>());
    
    // Needed for face assembly
-   const QGauss<dim-1>  face_quadrature_formula(2*fe.degree+1);
-   FEFaceValues<dim> fe_face_values (fe, face_quadrature_formula,
+   FEFaceValues<dim> fe_face_values (fe, face_quadrature,
                                      update_values | update_gradients |
                                      update_normal_vectors | update_JxW_values);
-   const unsigned int   n_face_q_points    = face_quadrature_formula.size();
+   const unsigned int   n_face_q_points    = face_quadrature.size();
    std::vector<Tensor<1,dim>> Dx_face_values (n_face_q_points, Tensor<1,dim>());
    std::vector<Tensor<1,dim>> Dy_face_values (n_face_q_points, Tensor<1,dim>());
    
@@ -370,11 +374,10 @@ void Winslow<dim>::assemble_system_matrix_rhs ()
    rhs_x         = 0;
    rhs_y         = 0;
    
-   const QGauss<dim>  quadrature_formula(2*fe.degree+1);
-   FEValues<dim> fe_values (fe, quadrature_formula,
+   FEValues<dim> fe_values (fe, cell_quadrature,
                             update_values | update_gradients | update_JxW_values);
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
-   const unsigned int   n_q_points    = quadrature_formula.size();
+   const unsigned int   n_q_points    = cell_quadrature.size();
    FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
    std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
    
