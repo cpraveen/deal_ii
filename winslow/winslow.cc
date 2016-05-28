@@ -156,6 +156,12 @@ template <int dim>
 void Winslow<dim>::initialize_grid ()
 {
    GridGenerator::hyper_ball (triangulation);
+   //GridGenerator::hyper_shell (triangulation, Point<dim>(0.0,0.0), 0.5, 1.0);
+   //GridIn<dim> grid_in;
+   //grid_in.attach_triangulation(triangulation);
+   //std::ifstream input_file("annulus.msh");
+   //grid_in.read_msh(input_file);
+   
    static const SphericalManifold<dim> boundary;
    triangulation.set_all_manifold_ids_on_boundary(0);
    triangulation.set_manifold (0, boundary);
@@ -407,8 +413,8 @@ void Winslow<dim>::assemble_system_matrix_rhs ()
          {
             for(unsigned int j=0; j<dofs_per_cell; ++j)
             {
-               cell_matrix(i,j) += (-(gi * fe_values.shape_grad(j,q)) * fe_values.shape_grad(i,q)
-                                   +
+               cell_matrix(i,j) += ((gi * fe_values.shape_grad(j,q)) * fe_values.shape_grad(i,q)
+                                   -
                                     (ax_values[q] * fe_values.shape_grad(j,q)[0] +
                                      ay_values[q] * fe_values.shape_grad(j,q)[1]) *
                                    fe_values.shape_value(i,q)) * fe_values.JxW(q);
