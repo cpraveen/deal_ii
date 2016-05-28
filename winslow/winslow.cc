@@ -13,6 +13,7 @@ Solve the Winslow equations using Picard iterations as in
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/manifold.h>
 #include <deal.II/grid/manifold_lib.h>
+#include <deal.II/grid/grid_in.h>
 #include <deal.II/grid/grid_out.h>
 
 #include <deal.II/lac/vector.h>
@@ -240,14 +241,14 @@ void Winslow<dim>::map_boundary_values()
    triangulation.set_manifold (0, flat_boundary);
    
    std::cout << "Number of boundary points = " << boundary_values_x.size() << std::endl;
-   
-//   for (const auto &pair : boundary_values_x)
-//   {
-//      double x0 = pair.second;
-//      double y0 = boundary_values_y[pair.first];
-//      std::cout << x0 << "  " << y0 << std::endl;
-//   }
-//   exit(0);
+   std::ofstream bdpts ("bd.dat");
+   for (const auto &pair : boundary_values_x)
+   {
+      double x0 = pair.second;
+      double y0 = boundary_values_y[pair.first];
+      bdpts << x0 << "  " << y0 << std::endl;
+   }
+   bdpts.close();
 }
 
 //------------------------------------------------------------------------------
@@ -434,6 +435,7 @@ void Winslow<dim>::solve_direct ()
 {
    // solve x
    {
+      x = 0;
       MatrixTools::apply_boundary_values (boundary_values_x,
                                           system_matrix_x,
                                           x,
@@ -445,6 +447,7 @@ void Winslow<dim>::solve_direct ()
    
    // solve y
    {
+      y = 0;
       MatrixTools::apply_boundary_values (boundary_values_y,
                                           system_matrix_y,
                                           y,
