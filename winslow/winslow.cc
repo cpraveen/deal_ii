@@ -410,7 +410,7 @@ void Winslow<dim>::assemble_system_matrix_rhs ()
          {
             for(unsigned int j=0; j<dofs_per_cell; ++j)
             {
-               cell_matrix(i,j) += ((gi * fe_values.shape_grad(j,q)) * fe_values.shape_grad(i,q)
+               cell_matrix(i,j) += (-(gi * fe_values.shape_grad(j,q)) * fe_values.shape_grad(i,q)
                                    +
                                     (ax_values[q] * fe_values.shape_grad(j,q)[0] +
                                      ay_values[q] * fe_values.shape_grad(j,q)[1]) *
@@ -421,11 +421,7 @@ void Winslow<dim>::assemble_system_matrix_rhs ()
       
       // Add cell_matrix to system_matrix
       cell->get_dof_indices(local_dof_indices);
-      for(unsigned int i=0; i<dofs_per_cell; ++i)
-         for(unsigned int j=0; j<dofs_per_cell; ++j)
-            system_matrix.add(local_dof_indices[i],
-                              local_dof_indices[j],
-                              cell_matrix(i,j));
+      system_matrix.add(local_dof_indices, cell_matrix);
    }
    
    system_matrix_x.copy_from(system_matrix);
@@ -564,7 +560,7 @@ void Winslow<dim>::run()
    output ();
    
    // start Picard iteration
-   const double RESTOL = 1.0e-6;
+   const double RESTOL = 1.0e-12;
    double res_norm = RESTOL + 1;
    unsigned int iter = 0, max_iter = 20;
    while(res_norm > RESTOL && iter < max_iter)
