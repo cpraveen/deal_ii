@@ -77,7 +77,6 @@ private:
    void assemble_system_matrix_rhs ();
    void set_initial_condition ();
    void map_boundary_values ();
-   void solve ();
    void solve_direct ();
    void solve_alpha ();
    double compute_change ();
@@ -93,7 +92,6 @@ private:
    
    SparsityPattern       sparsity_pattern;
    SparseMatrix<double>  mass_matrix;
-   SparseMatrix<double>  system_matrix;
    SparseMatrix<double>  system_matrix_x;
    SparseMatrix<double>  system_matrix_y;
    
@@ -148,7 +146,6 @@ void Winslow<dim>::setup_system ()
    DoFTools::make_sparsity_pattern(dof_handler,
                                    dsp);
    sparsity_pattern.copy_from(dsp);
-   system_matrix.reinit (sparsity_pattern);
    system_matrix_x.reinit (sparsity_pattern);
    system_matrix_y.reinit (sparsity_pattern);
    mass_matrix.reinit (sparsity_pattern);
@@ -370,9 +367,9 @@ void Winslow<dim>::solve_alpha ()
 template <int dim>
 void Winslow<dim>::assemble_system_matrix_rhs ()
 {
-   system_matrix = 0;
-   rhs_x         = 0;
-   rhs_y         = 0;
+   system_matrix_x = 0;
+   rhs_x           = 0;
+   rhs_y           = 0;
    
    FEValues<dim> fe_values (fe, cell_quadrature,
                             update_values | update_gradients | update_JxW_values);
@@ -421,11 +418,10 @@ void Winslow<dim>::assemble_system_matrix_rhs ()
       
       // Add cell_matrix to system_matrix
       cell->get_dof_indices(local_dof_indices);
-      system_matrix.add(local_dof_indices, cell_matrix);
+      system_matrix_x.add(local_dof_indices, cell_matrix);
    }
    
-   system_matrix_x.copy_from(system_matrix);
-   system_matrix_y.copy_from(system_matrix);
+   system_matrix_y.copy_from(system_matrix_x);
 }
 
 //------------------------------------------------------------------------------
@@ -454,58 +450,6 @@ void Winslow<dim>::solve_direct ()
       SparseDirectUMFPACK solver_y;
       solver_y.initialize (system_matrix_y);
       solver_y.vmult (y, rhs_y);
-   }
-}
-
-//------------------------------------------------------------------------------
-template <int dim>
-void Winslow<dim>::solve ()
-{
-   // solve for ax, ay
-   {
-      SolverControl           solver_control (1000, 1e-12);
-      SolverCG<>              solver (solver_control);
-      PreconditionSSOR<> preconditioner;
-      preconditioner.initialize(mass_matrix, 1.2);
-      solver.solve (mass_matrix,
-                    ax,
-                    rhs_ax,
-                    preconditioner);
-      solver.solve (mass_matrix,
-                    ay,
-                    rhs_ay,
-                    preconditioner);
-   }
-   
-   // solve for x, y
-   {
-      FilteredMatrix<Vector<double>> system_matrix_x (system_matrix);
-      system_matrix_x.add_constraints (boundary_values_x);
-
-      FilteredMatrix<Vector<double>> system_matrix_y (system_matrix);
-      system_matrix_y.add_constraints (boundary_values_y);
-      
-      // set up a linear solver
-      SolverControl control (1000, 1.e-10, false, false);
-      SolverCG<Vector<double>> solver (control);
-      
-      // set up a preconditioner object
-      PreconditionJacobi<SparseMatrix<double> > prec;
-      prec.initialize (system_matrix, 1.2);
-      
-      FilteredMatrix<Vector<double>> prec_x (prec);
-      prec_x.add_constraints (boundary_values_x);
-      // compute modification of right hand side
-      prec_x.apply_constraints (rhs_x);
-      
-      FilteredMatrix<Vector<double>> prec_y (prec);
-      prec_y.add_constraints (boundary_values_y);
-      // compute modification of right hand side
-      prec_y.apply_constraints (rhs_y);
-      
-      // solve for solution vector x
-      solver.solve (system_matrix_x, x, rhs_x, prec_x);
-      solver.solve (system_matrix_y, y, rhs_y, prec_y);
    }
 }
 
@@ -571,8 +515,7 @@ void Winslow<dim>::run()
       // solve x, y
       assemble_system_matrix_rhs ();
       solve_direct ();
-      //x -= x_old; x *= 0.1; x += x_old;
-      //y -= y_old; y *= 0.1; y += y_old;
+
       res_norm = compute_change ();
       ++iter;
       std::cout << iter << "  " << res_norm << std::endl;
