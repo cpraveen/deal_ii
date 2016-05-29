@@ -34,13 +34,15 @@ Solve the Winslow equations using Picard iterations as in
 #include <deal.II/numerics/matrix_tools.h>
 #include <deal.II/numerics/data_out.h>
 
-
 #include <iostream>
 #include <fstream>
 #include <cmath>
 
 using namespace dealii;
 
+namespace Winslow
+{
+   
 template <int dim>
 void g_matrix (const Tensor<1,dim>& Dx, const Tensor<1,dim>& Dy, Tensor<2,dim>& g)
 {
@@ -63,10 +65,25 @@ Tensor<2,dim> ginvert (const Tensor<2,dim>& g)
 }
 
 template <int dim>
+void sort_points (std::vector<Point<dim>> &points)
+{
+   std::vector<Point<dim>> tmp (points.size(), Point<dim>());
+   
+   tmp[0] = points[0];
+   for(unsigned int i=2; i<points.size(); ++i)
+      tmp[i-1] = points[i];
+   tmp[points.size()-1] = points[1];
+   
+   for(unsigned int i=0; i<points.size(); ++i)
+      points[i] = tmp[i];
+}
+
+template <int dim>
 class Winslow
 {
 public:
-   Winslow (unsigned int degree);
+   Winslow (const unsigned int  degree,
+            Triangulation<dim> &triangulation);
    void run ();
    
 private:
@@ -81,8 +98,9 @@ private:
    void solve_alpha ();
    double compute_change ();
    void output ();
+   void output_grids ();
    
-   Triangulation<dim> triangulation;
+   Triangulation<dim> *triangulation;
    FE_Q<dim>          fe;
    DoFHandler<dim>    dof_handler;
    
@@ -111,8 +129,10 @@ private:
 
 //------------------------------------------------------------------------------
 template <int dim>
-Winslow<dim>::Winslow(unsigned int degree)
+Winslow<dim>::Winslow(const unsigned int  degree,
+                      Triangulation<dim> &triangulation)
 :
+triangulation (&triangulation),
 fe (QGaussLobatto<1>(degree+1)),
 dof_handler (triangulation),
 cell_quadrature (2*fe.degree+1),
@@ -155,25 +175,22 @@ void Winslow<dim>::setup_system ()
 template <int dim>
 void Winslow<dim>::initialize_grid ()
 {
-   GridGenerator::hyper_ball (triangulation);
-   //GridGenerator::hyper_shell (triangulation, Point<dim>(0.0,0.0), 0.5, 1.0);
-   //GridIn<dim> grid_in;
-   //grid_in.attach_triangulation(triangulation);
-   //std::ifstream input_file("annulus.msh");
-   //grid_in.read_msh(input_file);
-   
-   static const SphericalManifold<dim> boundary;
-   triangulation.set_all_manifold_ids_on_boundary(0);
-   triangulation.set_manifold (0, boundary);
-   triangulation.refine_global(2);
-   
-   std::cout << "Number of cell = " << triangulation.n_active_cells();
+   std::cout << "Number of cell = " << triangulation->n_active_cells();
    std::cout << std::endl;
    
-   std::ofstream out ("grid.vtk");
-   GridOut grid_out;
-   grid_out.write_vtk (triangulation, out);
-   std::cout << "Grid written to grid.vtk" << std::endl;
+   {
+      std::ofstream out ("gridq1.vtk");
+      GridOut grid_out;
+      grid_out.write_vtk (*triangulation, out);
+      std::cout << "Grid written to gridq1.vtk" << std::endl;
+   }
+   
+   {
+      std::ofstream out ("gridq1.gnu");
+      GridOut grid_out;
+      grid_out.write_gnuplot (*triangulation, out);
+      std::cout << "Grid written to gridq1.gnu" << std::endl;
+   }
 }
 
 //------------------------------------------------------------------------------
@@ -244,20 +261,55 @@ void Winslow<dim>::map_boundary_values()
    
    // set all boundaries to be flat
    static const FlatManifold<dim> flat_boundary;
-   triangulation.set_all_manifold_ids_on_boundary(0);
-   triangulation.set_manifold (0, flat_boundary);
+   triangulation->set_all_manifold_ids_on_boundary(0);
+   triangulation->set_manifold (0, flat_boundary);
    
    // save boundary points to file
    std::cout << "Number of boundary points = " << boundary_values_x.size() << std::endl;
-   std::cout << "Saving them to file bd.dat\n";
-   std::ofstream bdpts ("bd.dat");
-   for (const auto &pair : boundary_values_x)
+}
+
+//------------------------------------------------------------------------------
+template <int dim>
+void Winslow<dim>::output_grids()
+{
+   std::cout << "Saving grid\n";
+   const unsigned int dofs_per_face = fe.dofs_per_face;
+   std::vector<types::global_dof_index> dof_indices(dofs_per_face);
+   std::vector<Point<dim>> points (dofs_per_face);
+   
+   std::ofstream bdpts ("bd.gnu");
+   std::ofstream gridq ("gridqk.gnu");
+   std::cout << "Boundary points saved into bd.gnu\n";
+   std::cout << "High order grid saved into gridqk.gnu\n";
+   
+   typename DoFHandler<dim>::active_cell_iterator
+   cell = dof_handler.begin_active(),
+   endc = dof_handler.end();
+   for (; cell!=endc; ++cell)
    {
-      double x0 = pair.second;
-      double y0 = boundary_values_y[pair.first];
-      bdpts << x0 << "  " << y0 << std::endl;
+      for (unsigned int f=0; f<GeometryInfo<dim>::faces_per_cell; ++f)
+      {
+         cell->face(f)->get_dof_indices(dof_indices);
+         for(unsigned int i=0; i<dofs_per_face; ++i)
+         {
+            points[i][0] = x(dof_indices[i]);
+            points[i][1] = y(dof_indices[i]);
+         }
+         sort_points (points);
+         for(unsigned int i=0; i<dofs_per_face; ++i)
+            gridq << points[i] << std::endl;
+         gridq << std::endl;
+         if(cell->face(f)->at_boundary())
+         {
+            for(unsigned int i=0; i<dofs_per_face; ++i)
+               bdpts << points[i] << std::endl;
+            bdpts << std::endl;
+         }
+      }
    }
+   
    bdpts.close();
+   gridq.close();
 }
 
 //------------------------------------------------------------------------------
@@ -269,7 +321,7 @@ void Winslow<dim>::assemble_alpha_rhs ()
    
    // Needed for cell assembly
    FEValues<dim> fe_values (fe, cell_quadrature,
-                            update_values | update_gradients | update_JxW_values);
+                            update_gradients | update_JxW_values);
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
    const unsigned int   n_q_points    = cell_quadrature.size();
    Vector<double>  cell_rhs_ax (dofs_per_cell);
@@ -281,8 +333,10 @@ void Winslow<dim>::assemble_alpha_rhs ()
    
    // Needed for face assembly
    FEFaceValues<dim> fe_face_values (fe, face_quadrature,
-                                     update_values | update_gradients |
-                                     update_normal_vectors | update_JxW_values);
+                                     update_values |
+                                     update_gradients |
+                                     update_normal_vectors |
+                                     update_JxW_values);
    const unsigned int   n_face_q_points    = face_quadrature.size();
    std::vector<Tensor<1,dim>> Dx_face_values (n_face_q_points, Tensor<1,dim>());
    std::vector<Tensor<1,dim>> Dy_face_values (n_face_q_points, Tensor<1,dim>());
@@ -529,11 +583,42 @@ void Winslow<dim>::run()
       y_old = y;
       output ();
    }
+   
+   output_grids ();
 }
 
+   template <int dim>
+   void compute_mapping (const unsigned int degree,
+                         Triangulation<dim> &triangulation)
+   {
+      Winslow<dim> winslow (degree, triangulation);
+      winslow.run ();
+   }
+}
 //------------------------------------------------------------------------------
 int main ()
 {
-   Winslow<2> winslow (3);
-   winslow.run ();
+   using namespace Winslow;
+   
+   // Setup the triangulation
+   Triangulation<2> triangulation;
+   
+   GridGenerator::hyper_ball (triangulation);
+   //GridGenerator::hyper_shell (triangulation, Point<dim>(0.0,0.0), 0.5, 1.0);
+   //GridIn<dim> grid_in;
+   //grid_in.attach_triangulation(triangulation);
+   //std::ifstream input_file("annulus.msh");
+   //grid_in.read_msh(input_file);
+   
+   // Attach manifold to boundaries
+   static const SphericalManifold<2> boundary;
+   triangulation.set_all_manifold_ids_on_boundary(0);
+   triangulation.set_manifold (0, boundary);
+   
+   // Do some refinement
+   triangulation.refine_global(2);
+   
+   // Compute the euler vector
+   unsigned int degree = 4;
+   compute_mapping (degree, triangulation);
 }
