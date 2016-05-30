@@ -188,9 +188,13 @@ namespace Winslow
    void Winslow<dim>::output_grids()
    {
       std::cout << "Saving grid\n";
-      const unsigned int dofs_per_face = fe.dofs_per_face;
-      std::vector<types::global_dof_index> dof_indices(dofs_per_face);
-      std::vector<Point<dim>> points (dofs_per_face);
+      
+      QTrapez<dim-1> trapezoidal_rule;
+      QIterated<dim-1> quadrature (trapezoidal_rule, fe.degree+1);
+      unsigned int n_face_q_points = quadrature.size();
+      FEFaceValues<dim> fe_face_values (fe, quadrature, update_values);
+      std::vector<double> x_values(n_face_q_points);
+      std::vector<double> y_values(n_face_q_points);
       
       std::ofstream bdpts ("bd.gnu");
       std::ofstream gridq ("gridqk.gnu");
@@ -204,20 +208,16 @@ namespace Winslow
       {
          for (unsigned int f=0; f<GeometryInfo<dim>::faces_per_cell; ++f)
          {
-            cell->face(f)->get_dof_indices(dof_indices);
-            for(unsigned int i=0; i<dofs_per_face; ++i)
-            {
-               points[i][0] = x(dof_indices[i]);
-               points[i][1] = y(dof_indices[i]);
-            }
-            sort_points (points);
-            for(unsigned int i=0; i<dofs_per_face; ++i)
-               gridq << points[i] << std::endl;
+            fe_face_values.reinit(cell, f);
+            fe_face_values.get_function_values (x, x_values);
+            fe_face_values.get_function_values (y, y_values);
+            for(unsigned int q=0; q<n_face_q_points; ++q)
+               gridq << x_values[q] << "  " << y_values[q] << std::endl;
             gridq << std::endl;
             if(cell->face(f)->at_boundary())
             {
-               for(unsigned int i=0; i<dofs_per_face; ++i)
-                  bdpts << points[i] << std::endl;
+               for(unsigned int q=0; q<n_face_q_points; ++q)
+                  bdpts << x_values[q] << "  " << y_values[q] << std::endl;
                bdpts << std::endl;
             }
          }
