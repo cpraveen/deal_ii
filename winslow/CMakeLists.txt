@@ -3,7 +3,7 @@
 ##
 
 # Set the name of the project and target:
-SET(TARGET "winslow")
+SET(TARGET "main")
 
 # Declare all source files the target consists of. Here, this is only
 # the one step-X.cc file, but as you expand your project you may wish
@@ -16,7 +16,9 @@ SET(TARGET "winslow")
 # in the "CMake in user projects" page accessible from the "User info"
 # page of the documentation.
 SET(TARGET_SRC
-  ${TARGET}.cc
+  winslow.h
+  winslow.cc
+  main.cc
   )
 
 # Usually, you will not need to modify anything beyond this point...
