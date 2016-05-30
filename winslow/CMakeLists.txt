@@ -19,6 +19,7 @@ SET(TARGET_SRC
   winslow.h
   winslow.cc
   main.cc
+  naca.h
   )
 
 # Usually, you will not need to modify anything beyond this point...
