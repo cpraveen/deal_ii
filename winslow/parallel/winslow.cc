@@ -44,9 +44,10 @@ namespace Winslow
    
    //------------------------------------------------------------------------------
    template <int dim>
-   Winslow<dim>::Winslow(const unsigned int  degree,
-                         Triangulation<dim> &triangulation)
+   Winslow<dim>::Winslow(const unsigned int                         degree,
+                         parallel::distributed::Triangulation<dim> &triangulation)
    :
+   mpi_communicator (MPI_COMM_WORLD),
    triangulation (&triangulation),
    fe (QGaussLobatto<1>(degree+1)),
    dof_handler (triangulation),
@@ -61,29 +62,52 @@ namespace Winslow
    void Winslow<dim>::setup_system ()
    {
       dof_handler.distribute_dofs (fe);
+      locally_owned_dofs = dof_handler.locally_owned_dofs ();
+      DoFTools::extract_locally_relevant_dofs (dof_handler,
+                                               locally_relevant_dofs);
       std::cout << "Number of dofs = " << dof_handler.n_dofs() << std::endl;
       std::cout << "Dofs per cell  = " << fe.dofs_per_cell << std::endl;
       std::cout << "Dofs per face  = " << fe.dofs_per_face << std::endl;
       
-      x.reinit (dof_handler.n_dofs());
-      y.reinit (dof_handler.n_dofs());
-      x_old.reinit (dof_handler.n_dofs());
-      y_old.reinit (dof_handler.n_dofs());
-      ax.reinit (dof_handler.n_dofs());
-      ay.reinit (dof_handler.n_dofs());
+      x.reinit (locally_relevant_dofs, mpi_communicator);
+      y.reinit (x);
+      x_old.reinit (x);
+      y_old.reinit (x);
+      ax.reinit (x);
+      ay.reinit (x);
       
-      rhs_x.reinit (dof_handler.n_dofs());
-      rhs_y.reinit (dof_handler.n_dofs());
-      rhs_ax.reinit (dof_handler.n_dofs());
-      rhs_ay.reinit (dof_handler.n_dofs());
+      rhs_x.reinit (locally_owned_dofs, locally_relevant_dofs, mpi_communicator, true);
+      rhs_y.reinit (rhs_x);
+      rhs_ax.reinit (rhs_x);
+      rhs_ay.reinit (rhs_x);
       
-      DynamicSparsityPattern dsp(dof_handler.n_dofs());
-      DoFTools::make_sparsity_pattern(dof_handler,
-                                      dsp);
-      sparsity_pattern.copy_from(dsp);
-      system_matrix_x.reinit (sparsity_pattern);
-      system_matrix_y.reinit (sparsity_pattern);
-      mass_matrix.reinit (sparsity_pattern);
+      // Create hanging node constraints
+      constraints.clear();
+      constraints.reinit (locally_relevant_dofs);
+      DoFTools::make_hanging_node_constraints (dof_handler, constraints);
+      constraints.close();
+      
+      // Create sparsity pattern and allocate memory for matrix
+      {
+         TrilinosWrappers::SparsityPattern sp (locally_owned_dofs,
+                                               locally_owned_dofs,
+                                               locally_relevant_dofs,
+                                               mpi_communicator);
+         DoFTools::make_sparsity_pattern (dof_handler,
+                                          sp,
+                                          constraints,
+                                          false,
+                                          Utilities::MPI::this_mpi_process(mpi_communicator));
+         sp.compress ();
+         system_matrix_x.reinit (sp);
+         system_matrix_y.reinit (sp);
+         mass_matrix.reinit (sp);
+         
+         // Uncomment these lines to save sparsity pattern
+         // Run in serial mode. Plot in gnuplot> p 'sparsity.gnu' w d
+         //std::ofstream spfile ("sparsity.gnu");
+         //sp.print_gnuplot(spfile);
+      }
    }
    
    //------------------------------------------------------------------------------
@@ -113,9 +137,9 @@ namespace Winslow
    void Winslow<dim>::assemble_mass_matrix ()
    {
       std::cout << "Creating mass matrix\n";
-      MatrixCreator::create_mass_matrix (dof_handler,
-                                         cell_quadrature,
-                                         mass_matrix);
+//      MatrixCreator::create_mass_matrix (dof_handler,
+//                                         cell_quadrature,
+//                                         mass_matrix);
    }
    
    //------------------------------------------------------------------------------
@@ -327,14 +351,14 @@ namespace Winslow
       static int first_time = 1;
       
       // solve for ax, ay
-      if(first_time)
-      {
-         std::cout << "LU decomposition of mass matrix\n";
-         solver_mass_matrix.initialize(mass_matrix);
-         first_time = 0;
-      }
-      solver_mass_matrix.vmult (ax, rhs_ax);
-      solver_mass_matrix.vmult (ay, rhs_ay);
+//      if(first_time)
+//      {
+//         std::cout << "LU decomposition of mass matrix\n";
+//         solver_mass_matrix.initialize(mass_matrix);
+//         first_time = 0;
+//      }
+//      solver_mass_matrix.vmult (ax, rhs_ax);
+//      solver_mass_matrix.vmult (ay, rhs_ay);
       
    }
    
@@ -403,29 +427,29 @@ namespace Winslow
    template <int dim>
    void Winslow<dim>::solve_direct ()
    {
-      // solve x
-      {
-         x = 0;
-         MatrixTools::apply_boundary_values (boundary_values_x,
-                                             system_matrix_x,
-                                             x,
-                                             rhs_x);
-         SparseDirectUMFPACK solver_x;
-         solver_x.initialize (system_matrix_x);
-         solver_x.vmult (x, rhs_x);
-      }
-      
-      // solve y
-      {
-         y = 0;
-         MatrixTools::apply_boundary_values (boundary_values_y,
-                                             system_matrix_y,
-                                             y,
-                                             rhs_y);
-         SparseDirectUMFPACK solver_y;
-         solver_y.initialize (system_matrix_y);
-         solver_y.vmult (y, rhs_y);
-      }
+//      // solve x
+//      {
+//         x = 0;
+//         MatrixTools::apply_boundary_values (boundary_values_x,
+//                                             system_matrix_x,
+//                                             x,
+//                                             rhs_x);
+//         SparseDirectUMFPACK solver_x;
+//         solver_x.initialize (system_matrix_x);
+//         solver_x.vmult (x, rhs_x);
+//      }
+//      
+//      // solve y
+//      {
+//         y = 0;
+//         MatrixTools::apply_boundary_values (boundary_values_y,
+//                                             system_matrix_y,
+//                                             y,
+//                                             rhs_y);
+//         SparseDirectUMFPACK solver_y;
+//         solver_y.initialize (system_matrix_y);
+//         solver_y.vmult (y, rhs_y);
+//      }
    }
    
    //------------------------------------------------------------------------------
@@ -503,7 +527,7 @@ namespace Winslow
    }
    
    
-}
+} // end of namespace Winslow
 
 // Instantiations
 template class Winslow::Winslow<2>;

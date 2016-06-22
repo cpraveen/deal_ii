@@ -11,12 +11,15 @@
 
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/sparse_matrix.h>
-#include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/sparse_direct.h>
+#include <deal.II/lac/trilinos_vector.h>
+#include <deal.II/lac/trilinos_sparse_matrix.h>
 
 #include <deal.II/fe/fe_q.h>
 
 #include <deal.II/dofs/dof_handler.h>
+
+#include <deal.II/distributed/tria.h>
 
 using namespace dealii;
 
@@ -65,8 +68,8 @@ namespace Winslow
    class Winslow
    {
    public:
-      Winslow (const unsigned int  degree,
-               Triangulation<dim> &triangulation);
+      Winslow (const unsigned int                         degree,
+               parallel::distributed::Triangulation<dim> &triangulation);
       void run ();
       
    private:
@@ -83,23 +86,27 @@ namespace Winslow
       void output ();
       void output_grids ();
       
-      Triangulation<dim> *triangulation;
+      MPI_Comm                                   mpi_communicator;
+      parallel::distributed::Triangulation<dim>  *triangulation;
+      IndexSet                                   locally_owned_dofs;
+      IndexSet                                   locally_relevant_dofs;
       FE_Q<dim>          fe;
       DoFHandler<dim>    dof_handler;
       
-      Vector<double> x, y;
-      Vector<double> x_old, y_old;
-      Vector<double> ax, ay;
+      TrilinosWrappers::MPI::Vector x, y;
+      TrilinosWrappers::MPI::Vector x_old, y_old;
+      TrilinosWrappers::MPI::Vector ax, ay;
       
-      SparsityPattern       sparsity_pattern;
-      SparseMatrix<double>  mass_matrix;
-      SparseMatrix<double>  system_matrix_x;
-      SparseMatrix<double>  system_matrix_y;
+      ConstraintMatrix                constraints;
+
+      TrilinosWrappers::SparseMatrix  mass_matrix;
+      TrilinosWrappers::SparseMatrix  system_matrix_x;
+      TrilinosWrappers::SparseMatrix  system_matrix_y;
       
-      Vector<double> rhs_x;
-      Vector<double> rhs_y;
-      Vector<double> rhs_ax;
-      Vector<double> rhs_ay;
+      TrilinosWrappers::MPI::Vector rhs_x;
+      TrilinosWrappers::MPI::Vector rhs_y;
+      TrilinosWrappers::MPI::Vector rhs_ax;
+      TrilinosWrappers::MPI::Vector rhs_ay;
       
       std::map<types::global_dof_index,double> boundary_values_x;
       std::map<types::global_dof_index,double> boundary_values_y;
