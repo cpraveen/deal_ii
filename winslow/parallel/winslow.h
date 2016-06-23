@@ -9,11 +9,6 @@
 
 #include <deal.II/base/conditional_ostream.h>
 
-#include <deal.II/grid/tria.h>
-
-#include <deal.II/lac/vector.h>
-#include <deal.II/lac/sparse_matrix.h>
-#include <deal.II/lac/sparse_direct.h>
 #include <deal.II/lac/trilinos_vector.h>
 #include <deal.II/lac/trilinos_sparse_matrix.h>
 #include <deal.II/lac/constraint_matrix.h>
@@ -125,9 +120,7 @@ namespace Winslow
       
       std::map<types::global_dof_index,double> boundary_values_x;
       std::map<types::global_dof_index,double> boundary_values_y;
-      
-      SparseDirectUMFPACK  solver_mass_matrix;
-      
+
       const QGauss<dim>   cell_quadrature;
       const QGauss<dim-1> face_quadrature;
       

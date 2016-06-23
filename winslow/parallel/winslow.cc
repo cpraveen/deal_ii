@@ -18,6 +18,7 @@
 
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/trilinos_solver.h>
+#include <deal.II/lac/trilinos_sparsity_pattern.h>
 
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
@@ -51,9 +52,8 @@ namespace Winslow
    dof_handler (triangulation),
    cell_quadrature (2*fe.degree+1),
    face_quadrature (2*fe.degree+1),
-   pcout (std::cout,(Utilities::MPI::this_mpi_process(mpi_communicator)== 0))
+   pcout (std::cout,(Utilities::MPI::this_mpi_process(mpi_communicator)==0))
    {
-      
    }
    
    //------------------------------------------------------------------------------
@@ -252,6 +252,7 @@ namespace Winslow
       
       add_dirichlet_constraints (boundary_values_x, constraints_x); constraints_x.close();
       add_dirichlet_constraints (boundary_values_y, constraints_y); constraints_y.close();
+      pcout << "Number of constraints = " << constraints_x.n_constraints() << std::endl;
    }
    
    //------------------------------------------------------------------------------
@@ -384,8 +385,8 @@ namespace Winslow
             
             // Add cell rhs to global vector
             cell->get_dof_indices(local_dof_indices);
-            constraints_x.distribute_local_to_global (cell_rhs_ax, local_dof_indices, rhs_ax);
-            constraints_y.distribute_local_to_global (cell_rhs_ay, local_dof_indices, rhs_ay);
+            constraints.distribute_local_to_global (cell_rhs_ax, local_dof_indices, rhs_ax);
+            constraints.distribute_local_to_global (cell_rhs_ay, local_dof_indices, rhs_ay);
          }
       
       rhs_ax.compress (VectorOperation::add);
@@ -517,7 +518,7 @@ namespace Winslow
          TrilinosWrappers::MPI::Vector tmp (locally_owned_dofs, mpi_communicator);
          TrilinosWrappers::SolverDirect direct_x (solver_control, data);
          direct_x.solve (system_matrix_x, tmp, rhs_x);
-         constraints.distribute (tmp);
+         constraints_x.distribute (tmp);
          x = tmp;
       }
       
@@ -526,7 +527,7 @@ namespace Winslow
          TrilinosWrappers::MPI::Vector tmp (locally_owned_dofs, mpi_communicator);
          TrilinosWrappers::SolverDirect direct_y (solver_control, data);
          direct_y.solve (system_matrix_y, tmp, rhs_y);
-         constraints.distribute (tmp);
+         constraints_y.distribute (tmp);
          y = tmp;
       }
    }
@@ -578,7 +579,7 @@ namespace Winslow
       set_initial_condition ();
       map_boundary_values ();
       assemble_mass_matrix ();
-      
+
       output ();
       
       // start Picard iteration
