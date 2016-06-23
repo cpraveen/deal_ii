@@ -21,15 +21,17 @@ Solve the Winslow equations using Picard iterations as in
 
 
 //------------------------------------------------------------------------------
-int main ()
+int main (int argc, char *argv[])
 {
    using namespace dealii;
    using namespace Winslow;
    
+   Utilities::MPI::MPI_InitFinalize mpi_initialization (argc, argv);
+
    // Setup the triangulation
-   Triangulation<2> triangulation;
+   parallel::distributed::Triangulation<2> triangulation (MPI_COMM_WORLD);
    
-   unsigned int test_case = 3;
+   unsigned int test_case = 1;
    unsigned int n_refine = 0;
    
    if(test_case==0)

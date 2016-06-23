@@ -7,6 +7,8 @@
  --------------------------------------------------------------------- */
 
 
+#include <deal.II/base/conditional_ostream.h>
+
 #include <deal.II/grid/tria.h>
 
 #include <deal.II/lac/vector.h>
@@ -14,6 +16,7 @@
 #include <deal.II/lac/sparse_direct.h>
 #include <deal.II/lac/trilinos_vector.h>
 #include <deal.II/lac/trilinos_sparse_matrix.h>
+#include <deal.II/lac/constraint_matrix.h>
 
 #include <deal.II/fe/fe_q.h>
 
@@ -25,6 +28,16 @@ using namespace dealii;
 
 namespace Winslow
 {
+   inline
+   void add_dirichlet_constraints (const std::map<types::global_dof_index,double> &values,
+                                   ConstraintMatrix                               &constraints)
+   {
+      for (const auto &pair : values)
+      {
+         constraints.add_line (pair.first);
+         constraints.set_inhomogeneity (pair.first, pair.second);
+      }
+   }
    
    template <int dim>
    inline
@@ -98,6 +111,8 @@ namespace Winslow
       TrilinosWrappers::MPI::Vector ax, ay;
       
       ConstraintMatrix                constraints;
+      ConstraintMatrix                constraints_x;
+      ConstraintMatrix                constraints_y;
 
       TrilinosWrappers::SparseMatrix  mass_matrix;
       TrilinosWrappers::SparseMatrix  system_matrix_x;
@@ -115,12 +130,14 @@ namespace Winslow
       
       const QGauss<dim>   cell_quadrature;
       const QGauss<dim-1> face_quadrature;
+      
+      ConditionalOStream                         pcout;
    };
    
    template <int dim>
    inline
-   void compute_mapping (const unsigned int degree,
-                         Triangulation<dim> &triangulation)
+   void compute_mapping (const unsigned int                         degree,
+                         parallel::distributed::Triangulation<dim> &triangulation)
    {
       Winslow<dim> winslow (degree, triangulation);
       winslow.run ();
