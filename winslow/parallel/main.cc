@@ -80,4 +80,6 @@ int main (int argc, char *argv[])
    // Compute the euler vector
    unsigned int degree = 4;
    compute_mapping (degree, triangulation);
+   
+   return 0;
 }

@@ -70,8 +70,8 @@ namespace Winslow
       
       x.reinit (locally_relevant_dofs, mpi_communicator);
       y.reinit (x);
-      x_old.reinit (x);
-      y_old.reinit (x);
+      x_old.reinit (locally_owned_dofs, mpi_communicator);
+      y_old.reinit (locally_owned_dofs, mpi_communicator);
       ax.reinit (x);
       ay.reinit (x);
       
@@ -193,16 +193,20 @@ namespace Winslow
       DoFTools::map_dofs_to_support_points (MappingQ<dim,dim>(fe.degree),
                                             dof_handler,
                                             support_points);
+      TrilinosWrappers::MPI::Vector x_tmp (locally_owned_dofs, mpi_communicator);
+      TrilinosWrappers::MPI::Vector y_tmp (locally_owned_dofs, mpi_communicator);
       
       for(const auto &pair : support_points)
       {
          const Point<dim>& p = pair.second;
-         x(pair.first) = p[0];
-         y(pair.first) = p[1];
+         x_tmp (pair.first) = p[0];
+         y_tmp (pair.first) = p[1];
       }
       
-      x_old = x;
-      y_old = y;
+      x     = x_tmp;
+      y     = y_tmp;
+      x_old = x_tmp;
+      y_old = y_tmp;
       
       ax = 0;
       ay = 0;
@@ -536,12 +540,14 @@ namespace Winslow
    template <int dim>
    double Winslow<dim>::compute_change ()
    {
-      TrilinosWrappers::MPI::Vector dx (x);
+      TrilinosWrappers::MPI::Vector dx (locally_owned_dofs, mpi_communicator);
+      dx  = x;
       dx -= x_old;
       double res_norm_x = dx.l2_norm();
       res_norm_x = std::sqrt( std::pow(res_norm_x,2) / dx.size() );
       
-      TrilinosWrappers::MPI::Vector dy (y);
+      TrilinosWrappers::MPI::Vector dy (locally_owned_dofs, mpi_communicator);
+      dy  = y;
       dy -= y_old;
       double res_norm_y = dy.l2_norm();
       res_norm_y = std::sqrt( std::pow(res_norm_y,2) / dy.size() );
