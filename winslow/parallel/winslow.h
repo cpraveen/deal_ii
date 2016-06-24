@@ -88,43 +88,45 @@ namespace Winslow
       void assemble_system_matrix_rhs ();
       void set_initial_condition ();
       void map_boundary_values ();
-      void solve_direct ();
+      void solve_xy ();
       void solve_alpha ();
       double compute_change ();
       void output ();
       void output_grids ();
       
-      MPI_Comm                                   mpi_communicator;
-      parallel::distributed::Triangulation<dim>  *triangulation;
-      IndexSet                                   locally_owned_dofs;
-      IndexSet                                   locally_relevant_dofs;
-      FE_Q<dim>          fe;
-      DoFHandler<dim>    dof_handler;
+      typedef parallel::distributed::Triangulation<dim> PDTriangulation;
       
-      TrilinosWrappers::MPI::Vector x, y;
-      TrilinosWrappers::MPI::Vector x_old, y_old;
-      TrilinosWrappers::MPI::Vector ax, ay;
+      MPI_Comm                          mpi_communicator;
+      PDTriangulation*                  triangulation;
+      IndexSet                          locally_owned_dofs;
+      IndexSet                          locally_relevant_dofs;
+      FE_Q<dim>                         fe;
+      DoFHandler<dim>                   dof_handler;
       
-      ConstraintMatrix                constraints;
-      ConstraintMatrix                constraints_x;
-      ConstraintMatrix                constraints_y;
+      TrilinosWrappers::MPI::Vector     x, y;
+      TrilinosWrappers::MPI::Vector     x_old, y_old;
+      TrilinosWrappers::MPI::Vector     ax, ay;
+      
+      ConstraintMatrix                  constraints;
+      ConstraintMatrix                  constraints_x;
+      ConstraintMatrix                  constraints_y;
 
-      TrilinosWrappers::SparseMatrix  mass_matrix;
-      TrilinosWrappers::SparseMatrix  system_matrix_x;
-      TrilinosWrappers::SparseMatrix  system_matrix_y;
+      TrilinosWrappers::SparseMatrix    mass_matrix;
+      TrilinosWrappers::SparseMatrix    system_matrix_x;
+      TrilinosWrappers::SparseMatrix    system_matrix_y;
       
-      TrilinosWrappers::MPI::Vector rhs_x;
-      TrilinosWrappers::MPI::Vector rhs_y;
-      TrilinosWrappers::MPI::Vector rhs_ax;
-      TrilinosWrappers::MPI::Vector rhs_ay;
+      TrilinosWrappers::MPI::Vector     rhs_x;
+      TrilinosWrappers::MPI::Vector     rhs_y;
+      TrilinosWrappers::MPI::Vector     rhs_ax;
+      TrilinosWrappers::MPI::Vector     rhs_ay;
       
       std::map<types::global_dof_index,double> boundary_values_x;
       std::map<types::global_dof_index,double> boundary_values_y;
 
-      const QGauss<dim>   cell_quadrature;
-      const QGauss<dim-1> face_quadrature;
+      const QGauss<dim>                 cell_quadrature;
+      const QGauss<dim-1>               face_quadrature;
       
-      ConditionalOStream                         pcout;
+      ConditionalOStream                pcout;
    };
    
    template <int dim>

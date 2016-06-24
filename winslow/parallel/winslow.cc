@@ -43,13 +43,13 @@ namespace Winslow
    
    //------------------------------------------------------------------------------
    template <int dim>
-   Winslow<dim>::Winslow(const unsigned int                         degree,
-                         parallel::distributed::Triangulation<dim> &triangulation)
+   Winslow<dim>::Winslow(const unsigned int   degree,
+                         PDTriangulation     &tria)
    :
    mpi_communicator (MPI_COMM_WORLD),
-   triangulation (&triangulation),
+   triangulation (&tria),
    fe (QGaussLobatto<1>(degree+1)),
-   dof_handler (triangulation),
+   dof_handler (tria),
    cell_quadrature (2*fe.degree+1),
    face_quadrature (2*fe.degree+1),
    pcout (std::cout,(Utilities::MPI::this_mpi_process(mpi_communicator)==0))
@@ -256,7 +256,6 @@ namespace Winslow
       
       add_dirichlet_constraints (boundary_values_x, constraints_x); constraints_x.close();
       add_dirichlet_constraints (boundary_values_y, constraints_y); constraints_y.close();
-      pcout << "Number of constraints = " << constraints_x.n_constraints() << std::endl;
    }
    
    //------------------------------------------------------------------------------
@@ -512,7 +511,7 @@ namespace Winslow
    
    //------------------------------------------------------------------------------
    template <int dim>
-   void Winslow<dim>::solve_direct ()
+   void Winslow<dim>::solve_xy ()
    {
       static TrilinosWrappers::SolverDirect::AdditionalData data (false, "Amesos_Mumps");
       static SolverControl solver_control (1, 0);
@@ -599,7 +598,7 @@ namespace Winslow
          solve_alpha ();
          // solve x, y
          assemble_system_matrix_rhs ();
-         solve_direct ();
+         solve_xy ();
          
          res_norm = compute_change ();
          ++iter;
