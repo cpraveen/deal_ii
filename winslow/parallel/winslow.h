@@ -11,6 +11,7 @@
 
 #include <deal.II/lac/trilinos_vector.h>
 #include <deal.II/lac/trilinos_sparse_matrix.h>
+#include <deal.II/lac/trilinos_solver.h>
 #include <deal.II/lac/constraint_matrix.h>
 
 #include <deal.II/fe/fe_q.h>
@@ -127,6 +128,8 @@ namespace Winslow
       const QGauss<dim-1>               face_quadrature;
       
       ConditionalOStream                pcout;
+      
+      std_cxx11::shared_ptr<TrilinosWrappers::SolverDirect> mumps_solver;
    };
    
    template <int dim>

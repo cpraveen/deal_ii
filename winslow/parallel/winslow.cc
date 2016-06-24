@@ -404,20 +404,21 @@ namespace Winslow
       
       static TrilinosWrappers::SolverDirect::AdditionalData data (false, "Amesos_Mumps");
       static SolverControl solver_control (1, 0);
-      static TrilinosWrappers::SolverDirect direct (solver_control, data);
       
       // If it is first time, compute LU decomposition
       if(first_time)
       {
          pcout << "Performing LU decomposition\n";
-         direct.initialize (mass_matrix);
+         mumps_solver = std_cxx11::shared_ptr<TrilinosWrappers::SolverDirect>
+                        (new TrilinosWrappers::SolverDirect(solver_control, data));
+         mumps_solver->initialize (mass_matrix);
          first_time = 0;
       }
       
       // solve for ax
       {
          TrilinosWrappers::MPI::Vector tmp (locally_owned_dofs, mpi_communicator);
-         direct.solve (tmp, rhs_ax);
+         mumps_solver->solve (tmp, rhs_ax);
          constraints.distribute (tmp);
          ax = tmp;
       }
@@ -425,7 +426,7 @@ namespace Winslow
       // solve for ay
       {
          TrilinosWrappers::MPI::Vector tmp (locally_owned_dofs, mpi_communicator);
-         direct.solve (tmp, rhs_ay);
+         mumps_solver->solve (tmp, rhs_ay);
          constraints.distribute (tmp);
          ay = tmp;
       }
