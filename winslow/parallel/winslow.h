@@ -79,7 +79,8 @@ namespace Winslow
    public:
       Winslow (const unsigned int                         degree,
                parallel::distributed::Triangulation<dim> &triangulation);
-      void run ();
+      void run (DoFHandler<dim>                          &dh_euler,
+                TrilinosWrappers::MPI::Vector            &euler_vector);
       
    private:
       void initialize_grid ();
@@ -94,6 +95,8 @@ namespace Winslow
       double compute_change ();
       void output ();
       void output_grids ();
+      void fill_euler_vector (DoFHandler<dim>               &dh_euler,
+                              TrilinosWrappers::MPI::Vector &euler_vector);
       
       typedef parallel::distributed::Triangulation<dim> PDTriangulation;
       
@@ -135,10 +138,22 @@ namespace Winslow
    template <int dim>
    inline
    void compute_mapping (const unsigned int                         degree,
-                         parallel::distributed::Triangulation<dim> &triangulation)
+                         parallel::distributed::Triangulation<dim> &triangulation,
+                         DoFHandler<dim>                           &dh_euler,
+                         TrilinosWrappers::MPI::Vector             &euler_vector)
    {
+      IndexSet locally_owned_dofs;
+      IndexSet locally_relevant_dofs;
+      locally_owned_dofs = dh_euler.locally_owned_dofs ();
+      DoFTools::extract_locally_relevant_dofs (dh_euler,
+                                               locally_relevant_dofs);
+      TrilinosWrappers::MPI::Vector distributed_euler_vector (locally_owned_dofs,
+                                                              triangulation.get_communicator());
+      
       Winslow<dim> winslow (degree, triangulation);
-      winslow.run ();
+      winslow.run (dh_euler, distributed_euler_vector);
+      euler_vector.reinit (locally_relevant_dofs, triangulation.get_communicator());
+      euler_vector = distributed_euler_vector;
    }
    
 }

@@ -400,19 +400,16 @@ namespace Winslow
    template <int dim>
    void Winslow<dim>::solve_alpha ()
    {
-      static int first_time = 1;
-      
       static TrilinosWrappers::SolverDirect::AdditionalData data (false, "Amesos_Mumps");
       static SolverControl solver_control (1, 0);
       
       // If it is first time, compute LU decomposition
-      if(first_time)
+      if(!mumps_solver)
       {
          pcout << "Performing LU decomposition\n";
          mumps_solver = std_cxx11::shared_ptr<TrilinosWrappers::SolverDirect>
                         (new TrilinosWrappers::SolverDirect(solver_control, data));
          mumps_solver->initialize (mass_matrix);
-         first_time = 0;
       }
       
       // solve for ax
@@ -578,7 +575,53 @@ namespace Winslow
    
    //------------------------------------------------------------------------------
    template <int dim>
-   void Winslow<dim>::run()
+   void Winslow<dim>::fill_euler_vector (DoFHandler<dim>               &dh_euler,
+                                         TrilinosWrappers::MPI::Vector &euler_vector)
+   {
+      unsigned int dofs_per_cell = fe.dofs_per_cell;
+      unsigned int dofs_per_cell_euler = dh_euler.get_fe().dofs_per_cell;
+      std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
+      std::vector<types::global_dof_index> euler_dof_indices (dofs_per_cell_euler);
+      
+      for(typename DoFHandler<dim>::active_cell_iterator
+          cell = dof_handler.begin_active(),
+          endc = dof_handler.end();
+          cell!=endc; ++cell)
+         if(cell->is_locally_owned())
+         {
+            typename DoFHandler<dim>::active_cell_iterator
+            euler_cell (triangulation,
+                        cell->level(),
+                        cell->index(),
+                        &dh_euler);
+            cell->get_dof_indices (local_dof_indices);
+            euler_cell->get_dof_indices (euler_dof_indices);
+            
+            for(unsigned int i=0; i<dofs_per_cell_euler; ++i)
+            {
+               unsigned int comp_i = dh_euler.get_fe().system_to_component_index(i).first;
+               unsigned int indx_i = dh_euler.get_fe().system_to_component_index(i).second;
+               if(comp_i == 0)
+               {
+                  euler_vector(euler_dof_indices[i]) = x(local_dof_indices[indx_i]);
+               }
+               else if(comp_i == 1)
+               {
+                  euler_vector(euler_dof_indices[i]) = y(local_dof_indices[indx_i]);
+               }
+               else
+               {
+                  AssertThrow(false, ExcMessage("Unknown component"));
+               }
+
+            }
+         }
+   }
+   
+   //------------------------------------------------------------------------------
+   template <int dim>
+   void Winslow<dim>::run(DoFHandler<dim>               &dh_euler,
+                          TrilinosWrappers::MPI::Vector &euler_vector)
    {
       initialize_grid ();
       setup_system ();
@@ -586,7 +629,7 @@ namespace Winslow
       map_boundary_values ();
       assemble_mass_matrix ();
 
-      output ();
+      //output ();
       
       // start Picard iteration
       const double RESTOL = 1.0e-12;
@@ -606,10 +649,11 @@ namespace Winslow
          pcout << iter << "  " << res_norm << std::endl;
          x_old = x;
          y_old = y;
-         output ();
+         //output ();
       }
       
-      output_grids ();
+      //output_grids ();
+      fill_euler_vector (dh_euler, euler_vector);
    }
    
    

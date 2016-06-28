@@ -12,12 +12,19 @@
 #include <deal.II/grid/manifold_lib.h>
 #include <deal.II/grid/grid_in.h>
 
+#include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_system.h>
+#include <deal.II/fe/mapping_fe_field.h>
+
+#include <deal.II/dofs/dof_tools.h>
+
 #include <iostream>
 #include <fstream>
 
 #include "winslow.h"
 #include "naca.h"
 
+static const int dim = 2;
 
 //------------------------------------------------------------------------------
 int main (int argc, char *argv[])
@@ -30,7 +37,7 @@ int main (int argc, char *argv[])
       Utilities::MPI::MPI_InitFinalize mpi_initialization (argc, argv);
       
       // Setup the triangulation
-      parallel::distributed::Triangulation<2> triangulation (MPI_COMM_WORLD);
+      parallel::distributed::Triangulation<dim> triangulation (MPI_COMM_WORLD);
       
       unsigned int test_case = 1;
       unsigned int n_refine = 0;
@@ -47,7 +54,7 @@ int main (int argc, char *argv[])
       }
       else if(test_case==2)
       {
-         GridIn<2> grid_in;
+         GridIn<dim> grid_in;
          grid_in.attach_triangulation(triangulation);
          std::ifstream input_file("annulus.msh");
          grid_in.read_msh(input_file);
@@ -55,7 +62,7 @@ int main (int argc, char *argv[])
       }
       else if(test_case==3)
       {
-         GridIn<2> grid_in;
+         GridIn<dim> grid_in;
          grid_in.attach_triangulation(triangulation);
          std::ifstream input_file("naca_struct.msh");
          grid_in.read_msh(input_file);
@@ -65,7 +72,7 @@ int main (int argc, char *argv[])
       // Attach manifold to boundaries
       if(test_case==0 || test_case==1 || test_case==2)
       {
-         static const SphericalManifold<2> boundary;
+         static const SphericalManifold<dim> boundary;
          triangulation.set_all_manifold_ids_on_boundary(0);
          triangulation.set_manifold (0, boundary);
       }
@@ -80,7 +87,13 @@ int main (int argc, char *argv[])
       
       // Compute the euler vector
       unsigned int degree = 4;
-      compute_mapping (degree, triangulation);
+      const FE_Q<dim> fe(QGaussLobatto<1>(degree+1));
+      const FESystem<dim> fesystem(fe, dim);
+      DoFHandler<dim,dim> dh_euler (triangulation);
+      dh_euler.distribute_dofs (fesystem);
+      TrilinosWrappers::MPI::Vector euler_vector;
+      compute_mapping (degree, triangulation, dh_euler, euler_vector);
+      MappingFEField<dim,dim,TrilinosWrappers::MPI::Vector> map (dh_euler, euler_vector);
    }
    catch (std::exception &exc)
    {
