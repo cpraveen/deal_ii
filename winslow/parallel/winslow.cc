@@ -46,7 +46,7 @@ namespace Winslow
    Winslow<dim>::Winslow(const unsigned int   degree,
                          PDTriangulation     &tria)
    :
-   mpi_communicator (MPI_COMM_WORLD),
+   mpi_communicator (tria.get_communicator()),
    triangulation (&tria),
    fe (QGaussLobatto<1>(degree+1)),
    dof_handler (tria),
