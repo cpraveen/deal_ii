@@ -127,6 +127,8 @@ namespace Winslow
       pcout << "Number of cell = " << triangulation->n_active_cells();
       pcout << std::endl;
       
+      if(Utilities::MPI::n_mpi_processes(mpi_communicator) > 1) return;
+      
       {
          std::ofstream out ("gridq1.vtk");
          GridOut grid_out;
@@ -262,7 +264,9 @@ namespace Winslow
    template <int dim>
    void Winslow<dim>::output_grids()
    {
-      pcout << "Saving grid\n";
+      if(Utilities::MPI::n_mpi_processes(mpi_communicator) > 1) return;
+
+      pcout << "Saving grid for visualization\n";
       
       QTrapez<dim-1> trapezoidal_rule;
       QIterated<dim-1> quadrature (trapezoidal_rule, fe.degree+1);
@@ -652,7 +656,7 @@ namespace Winslow
          //output ();
       }
       
-      //output_grids ();
+      output_grids ();
       fill_euler_vector (dh_euler, euler_vector);
    }
    
