@@ -36,10 +36,12 @@ int main (int argc, char *argv[])
       
       Utilities::MPI::MPI_InitFinalize mpi_initialization (argc, argv);
       
+      AssertThrow(argc > 1, ExcMessage("Specify test case: 0, 1, 2, 3"));
+
       // Setup the triangulation
       parallel::distributed::Triangulation<dim> triangulation (MPI_COMM_WORLD);
       
-      unsigned int test_case = 1;
+      unsigned int test_case = atoi(argv[1]);
       unsigned int n_refine = 0;
       
       if(test_case==0)
@@ -68,6 +70,10 @@ int main (int argc, char *argv[])
          grid_in.read_msh(input_file);
          n_refine = 0;
       }
+      else
+      {
+         AssertThrow(false, ExcMessage("Unknown test case"));
+      }
       
       // Attach manifold to boundaries
       if(test_case==0 || test_case==1 || test_case==2)
@@ -76,7 +82,7 @@ int main (int argc, char *argv[])
          triangulation.set_all_manifold_ids_on_boundary(0);
          triangulation.set_manifold (0, boundary);
       }
-      else  if(test_case==3)
+      else if(test_case==3)
       {
          NACA::set_curved_boundaries (triangulation);
          n_refine = 0;

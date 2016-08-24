@@ -656,6 +656,13 @@ namespace Winslow
          //output ();
       }
       
+      if(res_norm > RESTOL)
+      {
+         pcout << "****************************************\n";
+         pcout << "|  Picard iterations did not converge  |\n";
+         pcout << "****************************************\n";
+      }
+
       output_grids ();
       fill_euler_vector (dh_euler, euler_vector);
    }
