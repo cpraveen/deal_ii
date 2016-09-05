@@ -209,11 +209,16 @@ namespace Winslow
       TrilinosWrappers::MPI::Vector x_tmp (locally_owned_dofs, mpi_communicator);
       TrilinosWrappers::MPI::Vector y_tmp (locally_owned_dofs, mpi_communicator);
       
-      for(const auto &pair : support_points)
+      // support_points contains locally relevant dofs.
+      // Copy only locally owned values.
+      for(IndexSet::ElementIterator
+          dof = locally_owned_dofs.begin(),
+          end = locally_owned_dofs.end();
+          dof!=end; ++dof)
       {
-         const Point<dim>& p = pair.second;
-         x_tmp (pair.first) = p[0];
-         y_tmp (pair.first) = p[1];
+         const Point<dim>& p = support_points[*dof];
+         x_tmp (*dof) = p[0];
+         y_tmp (*dof) = p[1];
       }
       
       x     = x_tmp;
