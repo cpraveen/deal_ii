@@ -42,6 +42,8 @@ namespace Winslow
 {
    
    //------------------------------------------------------------------------------
+   // Constructor
+   //------------------------------------------------------------------------------
    template <int dim>
    Winslow<dim>::Winslow(const unsigned int   degree,
                          PDTriangulation     &tria)
@@ -56,6 +58,8 @@ namespace Winslow
    {
    }
    
+   //------------------------------------------------------------------------------
+   // Allocate memory for vectors and matrices
    //------------------------------------------------------------------------------
    template <int dim>
    void Winslow<dim>::setup_system ()
@@ -91,10 +95,12 @@ namespace Winslow
       constraints_x.clear();
       constraints_x.reinit (locally_relevant_dofs);
       DoFTools::make_hanging_node_constraints (dof_handler, constraints_x);
+      // NOTE: We close constraints_x later in map_boundary_values()
 
       constraints_y.clear();
       constraints_y.reinit (locally_relevant_dofs);
       DoFTools::make_hanging_node_constraints (dof_handler, constraints_y);
+      // NOTE: We close constraints_y later in map_boundary_values()
 
       // Create sparsity pattern and allocate memory for matrix
       // NOTE: We use "constraints" for all the matrices, this should be ok.
@@ -121,12 +127,15 @@ namespace Winslow
    }
    
    //------------------------------------------------------------------------------
+   // Save the Q1 mesh to file for visualization
+   //------------------------------------------------------------------------------
    template <int dim>
    void Winslow<dim>::initialize_grid ()
    {
       pcout << "Number of cell = " << triangulation->n_active_cells();
       pcout << std::endl;
       
+      // We save to file only if running on one processor
       if(Utilities::MPI::n_mpi_processes(mpi_communicator) > 1) return;
       
       {
@@ -144,6 +153,8 @@ namespace Winslow
       }
    }
    
+   //------------------------------------------------------------------------------
+   // Assemble mass matrix for alpha equation
    //------------------------------------------------------------------------------
    template <int dim>
    void Winslow<dim>::assemble_mass_matrix ()
@@ -261,6 +272,9 @@ namespace Winslow
    }
    
    //------------------------------------------------------------------------------
+   // Save the Qk mesh and boundary points for visualization
+   // Saved only if running with one processor
+   //------------------------------------------------------------------------------
    template <int dim>
    void Winslow<dim>::output_grids()
    {
@@ -306,6 +320,8 @@ namespace Winslow
       gridq.close();
    }
    
+   //------------------------------------------------------------------------------
+   // Assemble the rhs in the alpha equations
    //------------------------------------------------------------------------------
    template <int dim>
    void Winslow<dim>::assemble_alpha_rhs ()
@@ -400,6 +416,8 @@ namespace Winslow
       rhs_ay.compress (VectorOperation::add);
    }
    
+   //------------------------------------------------------------------------------
+   // Solve for alpha, currently only direct solver with MUMPS
    //------------------------------------------------------------------------------
    template <int dim>
    void Winslow<dim>::solve_alpha ()
