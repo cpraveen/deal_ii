@@ -30,6 +30,8 @@ namespace Winslow
    {
       for (const auto &pair : values)
       {
+         Assert(constraints.is_constrained(pair.first)==false,
+                ExcMessage("dof already constrained"));
          constraints.add_line (pair.first);
          constraints.set_inhomogeneity (pair.first, pair.second);
       }

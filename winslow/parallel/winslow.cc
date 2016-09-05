@@ -242,7 +242,7 @@ namespace Winslow
           cell = dof_handler.begin_active(),
           endc = dof_handler.end();
           cell!=endc; ++cell)
-         if(cell->is_locally_owned())
+         if(!cell->is_artificial())
          {
             for (unsigned int f=0; f<GeometryInfo<dim>::faces_per_cell; ++f)
                if (cell->face(f)->at_boundary())
