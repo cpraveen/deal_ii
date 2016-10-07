@@ -10,7 +10,7 @@ https://www.image.ucar.edu/staff/rnair/mwr05_dg_adv.pdf
 
 The `CubedSphere` manifold can be used with `MappingManifold` which gives exact mapping. A comparison of the grid obtained from `SphericalManifold` and `CubedSphere` is shown below.
 
-(grid)[cubedsphere.png)
+[grid](cubedsphere.png)
 
 The red grid is obtained with `SphericalManifold` and the black grid is from `CubedSphere`.
 
