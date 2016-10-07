@@ -10,7 +10,7 @@ https://www.image.ucar.edu/staff/rnair/mwr05_dg_adv.pdf
 
 The use of this is shown in the following code.
 
-```
+```C++
 const double R = 1.0; // Radius of sphere
 Point<spacedim> center(0.0, 0.0, 0.0);
 GridGenerator::hyper_sphere(triangulation, center, R);
@@ -75,5 +75,5 @@ for (typename Triangulation<dim,spacedim>::active_cell_iterator
    }
 }
 // Now you can refine the grid
-triangulation.refine_global(n_refine);
+triangulation.refine_global(3);
 ```
