@@ -434,7 +434,7 @@ namespace Winslow
       if(!mumps_solver)
       {
          pcout << "Performing LU decomposition\n";
-         mumps_solver = std_cxx11::shared_ptr<TrilinosWrappers::SolverDirect>
+         mumps_solver = std::shared_ptr<TrilinosWrappers::SolverDirect>
                         (new TrilinosWrappers::SolverDirect(solver_control, data));
          mumps_solver->initialize (mass_matrix);
       }

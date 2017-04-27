@@ -134,7 +134,7 @@ namespace Winslow
       
       ConditionalOStream                pcout;
       
-      std_cxx11::shared_ptr<TrilinosWrappers::SolverDirect> mumps_solver;
+      std::shared_ptr<TrilinosWrappers::SolverDirect> mumps_solver;
    };
    
    template <int dim>
