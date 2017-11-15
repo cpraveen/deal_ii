@@ -234,6 +234,7 @@ class Step12
       void refine_grid_initial ();
       void refine_grid ();
       void compute_min_max ();
+      void compute_error ();
       void output_results (double time);
       double compute_cell_average(const typename DoFHandler<dim>::cell_iterator& cell);
       
@@ -932,6 +933,26 @@ void Step12<dim>::compute_min_max ()
 }
 
 //------------------------------------------------------------------------------
+// Compute L2 error norm
+// Final solution = initial solution, so we use initial condition as
+// exact solution.
+//------------------------------------------------------------------------------
+template <int dim>
+void Step12<dim>::compute_error ()
+{
+   InitialCondition<dim> initial_condition (test_case);
+   Vector<double> error_per_cell(triangulation.n_active_cells());
+   VectorTools::integrate_difference(dof_handler,
+                                     solution,
+                                     initial_condition,
+                                     error_per_cell,
+                                     QGauss<dim>(fe.degree+2),
+                                     VectorTools::L2_norm);
+   double error_norm = error_per_cell.l2_norm();
+   std::cout << "L2 error norm = " << error_norm << std::endl;
+}
+
+//------------------------------------------------------------------------------
 // Solve the problem to convergence by RK time integration
 //------------------------------------------------------------------------------
 template <int dim>
@@ -968,7 +989,7 @@ void Step12<dim>::solve ()
       
       ++iter; time += dt;
 
-      if(iter==1 || std::fmod(iter,n_refine_interval)==0)
+      if(std::fmod(iter,n_refine_interval)==0)
       {
          compute_shock_indicator ();
          refine_grid ();
@@ -982,7 +1003,7 @@ void Step12<dim>::solve ()
       if(std::fmod(iter,100)==0 || std::fabs(time-final_time) < 1.0e-14)
          output_results(time);
    }
-   
+   compute_error();
 }
 
 //------------------------------------------------------------------------------
@@ -1155,8 +1176,9 @@ void Step12<dim>::run ()
    set_initial_condition ();
    
    // Initial refinements
-   for(unsigned int i=0; i<n_refine_init; ++i)
+   for(unsigned int i=1; i<=n_refine_init; ++i)
    {
+      std::cout << "Initial refinement step = " << i << std::endl;
       compute_shock_indicator ();
       refine_grid_initial ();
       set_initial_condition();
@@ -1179,7 +1201,7 @@ int main ()
       LimiterType limiter_type = none;
       TestCase test_case = expo;
       unsigned int n_points = 100;
-      unsigned int n_refine_init = 0;
+      unsigned int n_refine_init = 0; // number of initial refinement steps
       unsigned int n_refine_interval = 0;
       Mlim = 0.0;
       Step12<2> dgmethod(degree,
