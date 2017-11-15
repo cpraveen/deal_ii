@@ -611,7 +611,7 @@ void Step12<dim>::integrate_boundary_term (DoFInfo& dinfo, CellInfo& info)
    Vector<double>& local_vector = dinfo.vector(0).block(0);
    
    const std::vector<double>& JxW = fe_v.get_JxW_values ();
-   const std::vector<Point<dim> >& normals = fe_v.get_normal_vectors ();
+   const std::vector<Tensor<1,dim>>& normals = fe_v.get_normal_vectors ();
    
    std::vector<double> g(fe_v.n_quadrature_points);
    
@@ -649,7 +649,7 @@ void Step12<dim>::integrate_face_term (DoFInfo& dinfo1, DoFInfo& dinfo2,
    Vector<double>& local_vector2 = dinfo2.vector(0).block(0);
    
    const std::vector<double>& JxW = fe_v.get_JxW_values ();
-   const std::vector<Point<dim> >& normals = fe_v.get_normal_vectors ();
+   const std::vector<Tensor<1,dim>>& normals = fe_v.get_normal_vectors ();
    
    for (unsigned int point=0; point<fe_v.n_quadrature_points; ++point)
    {
