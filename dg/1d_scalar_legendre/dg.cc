@@ -1061,11 +1061,11 @@ int main ()
        param.n_cells      = 50;
        param.nstep        = 1;
        param.output_step  = 10;
-       param.test_case    = sine;
+       param.test_case    = sine;   // sine, hat, trihat
        param.cfl          = 0.9/(2.0*param.degree+1.0);
        param.final_time   = 10;
-       param.limiter_type = none;
-       param.flux_type    = upwind;
+       param.limiter_type = none;   // none, tvd
+       param.flux_type    = upwind; // central, upwind
        
        bool debug = false;
        Mlim = 100.0;
