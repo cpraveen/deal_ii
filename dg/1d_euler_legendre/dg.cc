@@ -27,7 +27,6 @@
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/sparse_matrix.h>
-#include <deal.II/lac/compressed_sparsity_pattern.h>
 #include <deal.II/base/parameter_handler.h>
 #include <deal.II/base/convergence_table.h>
 #include <deal.II/base/logstream.h>
@@ -188,7 +187,7 @@ template <int dim>
 Tensor<1,dim> ExactSolution<dim>::gradient (const Point<dim>   &p,
                                        const unsigned int) const
 {
-   Tensor<1,dim> return_value(0.0);
+   Tensor<1,dim> return_value;
    double x = p[0] - 2.0;
    return_value[0] = 0.2 * (M_PI) * cos(M_PI*x);
    return return_value;
@@ -2797,8 +2796,7 @@ int main (int argc, char** argv)
          prm.print_parameters(std::cout, ParameterHandler::Text);
          return 0;
       }
-      bool status = prm.read_input (argv[1], true);
-      AssertThrow( status, ExcFileNotOpen(argv[1]) );
+      prm.parse_input (argv[1]);
       prm.print_parameters(std::cout, ParameterHandler::Text);
       unsigned int degree = prm.get_integer("degree");
       unsigned int nrefine = prm.get_integer("refine");
