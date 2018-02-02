@@ -2391,7 +2391,9 @@ void EulerProblem<dim>::apply_positivity_limiter ()
    
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
-   
+
+   // This is set to close to machine precision. For some problems like blast,
+   // which have strong shock interaction, you may have to increase to eps = 1.0e-10
    double eps = 1.0e-13;
    for (unsigned int c=0; c<n_cells; ++c)
    {
