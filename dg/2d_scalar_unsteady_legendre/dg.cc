@@ -62,8 +62,13 @@ double Mlim;
 double dx;
 
 enum LimiterType {none, tvd};
-enum TestCase {expo, square, circ};
+enum TestCase {expo, square, circ, shear1};
 
+// Global variables
+TestCase test_case;
+double t;
+double final_time;
+double xmin, xmax;
 //------------------------------------------------------------------------------
 // Minmod function
 //------------------------------------------------------------------------------
@@ -89,8 +94,23 @@ double minmod(double a, double b, double c)
 template <int dim>
 void advection_speed(const Point<dim>& p, Point<dim>& v)
 {
-   v(0) = -p(1);
-   v(1) =  p(0);
+   double x = p[0];
+   double y = p[1];
+
+   if(test_case == expo || test_case == square || test_case == circ)
+   {
+      v[0] = -y;
+      v[1] =  x;
+   }
+   else if(test_case == shear1)
+   {
+      v[0] =  pow(sin(M_PI*x),2) * sin(2*M_PI*y) * cos(M_PI*t/5.0);
+      v[1] = -pow(sin(M_PI*y),2) * sin(2*M_PI*x) * cos(M_PI*t/5.0);
+   }
+   else
+   {
+      AssertThrow(false, ExcMessage("advection_speed: unknown test_case"))
+   }
 }
 //------------------------------------------------------------------------------
 // Upwind flux
@@ -109,15 +129,10 @@ template <int dim>
 class InitialCondition: public Function<dim>
 {
 public:
-   InitialCondition (TestCase test_case)
-   :
-   test_case (test_case)
-   {};
+   InitialCondition () {};
    virtual void value_list (const std::vector<Point<dim> > &points,
                             std::vector<double> &values,
                             const unsigned int component=0) const;
-private:
-   TestCase test_case;
 };
 
 // Computes boundary condition value at a list of boundary points
@@ -153,6 +168,15 @@ void InitialCondition<dim>::value_list(const std::vector<Point<dim> > &points,
          else
             values[i] = 1.0;
       }
+   else if(test_case == shear1) // Nair & Lauritzen, JCP 229 (2010)
+      for (unsigned int i=0; i<values.size(); ++i)
+      {
+         const Point<dim>& p = points[i];
+         double r = sqrt(pow(p[0]-0.25,2) + pow(p[1]-0.25,2));
+         double R = fmin(1.0, 4.0*r);
+         values[i] = 0.5 * (1.0 + cos(M_PI*R));
+      }
+
    else
    {
       for (unsigned int i=0; i<values.size(); ++i)
@@ -167,25 +191,35 @@ void InitialCondition<dim>::value_list(const std::vector<Point<dim> > &points,
 template <int dim>
 class BoundaryValues: public Function<dim>
 {
-  public:
-    BoundaryValues () {};
-    virtual void value_list (const std::vector<Point<dim> > &points,
-			                    std::vector<double> &values,
-			                    const unsigned int component=0) const;
+public:
+   BoundaryValues () {};
+   virtual void value_list (const std::vector<Point<dim> > &points,
+                            std::vector<double> &values,
+                            const unsigned int component=0) const;
 };
 
 // Computes boundary condition value at a list of boundary points
 template <int dim>
 void BoundaryValues<dim>::value_list(const std::vector<Point<dim> > &points,
-				       std::vector<double> &values,
-				       const unsigned int) const
+                                     std::vector<double> &values,
+                                     const unsigned int) const
 {
    Assert(values.size()==points.size(),
           ExcDimensionMismatch(values.size(),points.size()));
-   
-   for (unsigned int i=0; i<values.size(); ++i)
+
+   if(test_case == expo || test_case == square || test_case == circ)
    {
-      values[i]=1.0;
+      for (unsigned int i=0; i<values.size(); ++i)
+         values[i] = 1.0;
+   }
+   else if(test_case == shear1)
+   {
+      for (unsigned int i=0; i<values.size(); ++i)
+         values[i] = 0.0;
+   }
+   else
+   {
+      AssertThrow(false, ExcMessage("BoundaryValues::value_list: unknown test_case"))
    }
 }
 
@@ -214,7 +248,6 @@ class Step12
    public:
       Step12 (unsigned int degree, 
               LimiterType  limiter_type,
-              TestCase     test_case,
               unsigned int n_points,
               unsigned int n_refine_init=0,
               unsigned int n_refine_interval=0);
@@ -226,7 +259,7 @@ class Step12
       void set_initial_condition ();
       void setup_mesh_worker (RHSIntegrator<dim>&);
       void assemble_rhs (RHSIntegrator<dim>&);
-      void compute_dt ();
+      void compute_dt (const double);
       void solve ();
       void compute_shock_indicator ();
       void apply_limiter ();
@@ -259,7 +292,6 @@ class Step12
       double               dt;
       double               cfl;
       LimiterType          limiter_type;
-      TestCase             test_case;
       unsigned int         n_points, n_refine_init, n_refine_interval;
       double               sol_min, sol_max;
       double               h_min, h_max;
@@ -282,7 +314,6 @@ class Step12
 template <int dim>
 Step12<dim>::Step12 (unsigned int degree,
                      LimiterType  limiter_type,
-                     TestCase     test_case,
                      unsigned int n_points,
                      unsigned int n_refine_init,
                      unsigned int n_refine_interval)
@@ -294,7 +325,6 @@ Step12<dim>::Step12 (unsigned int degree,
       fe_cell(0),
       dof_handler_cell (triangulation),
       limiter_type (limiter_type),
-      test_case (test_case),
       n_points (n_points),
       n_refine_init (n_refine_init),
       n_refine_interval (n_refine_interval)
@@ -453,7 +483,7 @@ void Step12<dim>::assemble_mass_matrix ()
 template <int dim>
 void Step12<dim>::set_initial_condition ()
 {
-   InitialCondition<dim> initial_condition (test_case);
+   InitialCondition<dim> initial_condition;
    VectorTools::create_right_hand_side(dof_handler,
                                        QGauss<dim>(fe.degree+1),
                                        initial_condition,
@@ -518,10 +548,9 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
 // Compute time-step
 //------------------------------------------------------------------------------
 template <int dim>
-void Step12<dim>::compute_dt ()
+void Step12<dim>::compute_dt (const double time)
 {
-   std::cout << "Computing local time-step ...\n";
-      
+   t  = time; // set global variable. we use this in advection_speed.
    dt = 1.0e20;
    
    // Cell iterator
@@ -616,7 +645,7 @@ void Step12<dim>::integrate_boundary_term (DoFInfo& dinfo, CellInfo& info)
    
    std::vector<double> g(fe_v.n_quadrature_points);
    
-   static BoundaryValues<dim> boundary_function;
+   BoundaryValues<dim> boundary_function;
    boundary_function.value_list (fe_v.get_quadrature_points(), g);
    
    for (unsigned int point=0; point<fe_v.n_quadrature_points; ++point)
@@ -940,7 +969,7 @@ void Step12<dim>::compute_min_max ()
 template <int dim>
 void Step12<dim>::compute_error ()
 {
-   InitialCondition<dim> initial_condition (test_case);
+   InitialCondition<dim> initial_condition;
    Vector<double> error_per_cell(triangulation.n_active_cells());
    VectorTools::integrate_difference(dof_handler,
                                      solution,
@@ -960,13 +989,12 @@ void Step12<dim>::solve ()
 {
    RHSIntegrator<dim> rhs_integrator (dof_handler);
    setup_mesh_worker (rhs_integrator);
-   compute_dt ();
-   
+   compute_dt (0.0);
+
    std::cout << "Solving by RK ...\n";
 
-   double final_time = 2.0*M_PI;
    unsigned int iter = 0;
-   double time = 0;
+   double time = t = 0;
    while (time < final_time)
    {
       // We want to reach final_time exactly
@@ -977,6 +1005,11 @@ void Step12<dim>::solve ()
       // 3-stage RK scheme
       for(unsigned int r=0; r<3; ++r)
       {
+         // Set stage time here, used in assembly and advection_speed
+         if(r == 0) t = time;
+         if(r == 1) t = time + dt;
+         if(r == 2) t = time + 0.5*dt;
+
          assemble_rhs (rhs_integrator);
          
          for(unsigned int i=0; i<dof_handler.n_dofs(); ++i)
@@ -989,14 +1022,21 @@ void Step12<dim>::solve ()
       
       ++iter; time += dt;
 
-      if(std::fmod(iter,n_refine_interval)==0)
+      if(std::fmod(iter,n_refine_interval) == 0)
       {
          compute_shock_indicator ();
          refine_grid ();
-         compute_dt ();
+         compute_dt (time);
+      }
+      else
+      {
+         // For some test cases, advection speed is time dependent, so we have to
+         // compute dt every time from cfl condition.
+         if(test_case == shear1) compute_dt (time);
       }
       
       std::cout << "It=" << iter
+                << ", dt=" << dt
                 << ", t= " << time
                 << ", min,max u= " << sol_min << "  " << sol_max
                 << ", min,max h=" << h_min << " " << h_max << std::endl;
@@ -1171,7 +1211,7 @@ void Step12<dim>::output_results (double time)
 template <int dim>
 void Step12<dim>::run ()
 {
-   GridGenerator::subdivided_hyper_cube (triangulation,n_points,-1.0,+1.0);
+   GridGenerator::subdivided_hyper_cube (triangulation,n_points,xmin,xmax);
    setup_system ();
    set_initial_condition ();
    
@@ -1197,16 +1237,22 @@ int main ()
    {
       std::cout << "Number of threads = "
                 << MultithreadInfo::n_threads() << std::endl;
+
+      // Set test case here; they are global variables
+      // Comment all except one.
+      test_case = expo; xmin = -1.0; xmax = 1.0; final_time = 2.0*M_PI;
+      test_case = square; xmin = -1.0; xmax = 1.0; final_time = 2.0*M_PI;
+      test_case = circ; xmin = -1.0; xmax = 1.0; final_time = 2.0*M_PI;
+      test_case = shear1; xmin = 0.0; xmax = 1.0; final_time = 5.0;
+
       unsigned int degree = 1;
       LimiterType limiter_type = none;
-      TestCase test_case = expo;
       unsigned int n_points = 100;
       unsigned int n_refine_init = 0; // number of initial refinement steps
       unsigned int n_refine_interval = 0;
-      Mlim = 0.0;
+      Mlim = 0.0; // TVD parameter, global variable
       Step12<2> dgmethod(degree,
                          limiter_type,
-                         test_case,
                          n_points,
                          n_refine_init,
                          n_refine_interval);
