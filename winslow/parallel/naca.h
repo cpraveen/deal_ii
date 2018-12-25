@@ -43,8 +43,13 @@ private:
    }
    
 public:
-   virtual Point<2> project_to_manifold (const std::vector<Point<2>> &surrounding_points,
-                                         const Point<2>              &candidate) const
+   virtual std::unique_ptr<Manifold<2,2>> clone() const override
+   {
+      return std_cxx14::make_unique<NACA0012>();
+   }
+
+   virtual Point<2> project_to_manifold (const ArrayView<const Point<2>> &surrounding_points,
+                                         const Point<2>              &candidate) const override
    {
       const double GEOMTOL = 1.0e-13;
       Assert((surrounding_points[0][1] > -GEOMTOL && surrounding_points[1][1] > -GEOMTOL) ||

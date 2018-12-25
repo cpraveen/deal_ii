@@ -35,6 +35,18 @@ namespace Winslow
          constraints.add_line (pair.first);
          constraints.set_inhomogeneity (pair.first, pair.second);
       }
+      /*
+      for (std::map<types::global_dof_index,double>::const_iterator
+           it = values.cbegin(),
+           end= values.cend();
+           it != end; ++it)
+      {
+         Assert(constraints.is_constrained(it->first)==false,
+                ExcMessage("dof is already constrained"));
+         constraints.add_line (it->first);
+         constraints.set_inhomogeneity (it->first, it->second);
+      }
+      */
    }
    
    template <int dim>
