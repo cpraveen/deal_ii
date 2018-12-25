@@ -1633,8 +1633,7 @@ void EulerProblem<dim>::identify_troubled_cells ()
    n_troubled_cells = 0;
 
    typename DoFHandler<dim>::active_cell_iterator
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
+      cell = dof_handler.begin_active();
    
    for (unsigned int c=0; c<n_cells; ++c, ++cell)
    {
@@ -1782,8 +1781,7 @@ void EulerProblem<dim>::compute_entropy_residual_1 ()
    std::vector<Tensor<1,dim> >  energy_grad   (n_q_points);
    
    typename DoFHandler<dim>::active_cell_iterator
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
+      cell = dof_handler.begin_active();
    
    for (unsigned int c=0; c<n_cells; ++c, ++cell)
    {
@@ -1837,8 +1835,7 @@ void EulerProblem<dim>::compute_entropy_residual_2 ()
    n_troubled_cells = 0;
 
    typename DoFHandler<dim>::active_cell_iterator
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
+      cell = dof_handler.begin_active();
    
    for (unsigned int c=0; c<n_cells; ++c, ++cell)
    {
@@ -1904,8 +1901,7 @@ void EulerProblem<dim>::apply_limiter_TVB ()
    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
    
    typename DoFHandler<dim>::active_cell_iterator 
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
+      cell = dof_handler.begin_active();
    
    std::vector<double> db(n_var), df(n_var), DB(n_var), DF(n_var);
    std::vector<double> dl(n_var), dr(n_var);
@@ -2047,8 +2043,7 @@ void EulerProblem<dim>::apply_limiter_BDF ()
    Vector<double> energy_n(energy);
 
    typename DoFHandler<dim>::active_cell_iterator 
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
+      cell = dof_handler.begin_active();
    
    for (unsigned int c=0; c<n_cells; ++c, ++cell)
    if(is_troubled[c])
@@ -2192,8 +2187,7 @@ void EulerProblem<dim>::apply_limiter_BSB ()
    Vector<double> energy_n(energy);
 
    typename DoFHandler<dim>::active_cell_iterator 
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
+      cell = dof_handler.begin_active();
    
    for (unsigned int c=0; c<n_cells; ++c, ++cell)
    if(is_troubled[c])
