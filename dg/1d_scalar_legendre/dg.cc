@@ -40,6 +40,9 @@ double Mh2;
 const double a_rk[3] = {0.0, 3.0/4.0, 1.0/3.0};
 const double b_rk[3] = {1.0, 1.0/4.0, 2.0/3.0};
 
+// Advection speed
+const double speed = 1.0;
+
 // Numerical flux functions
 enum FluxType {central, upwind};
 enum TestCase {sine, hat, trihat};
@@ -110,7 +113,7 @@ private:
 // Initial condition
 template<int dim>
 double InitialCondition<dim>::value (const Point<dim> &p,
-                                     const unsigned int component) const
+                                     const unsigned int /* component */) const
 {
    double x = p[0];
    double value = 0;
@@ -222,7 +225,7 @@ Tensor<1,dim> Solution<dim>::gradient (const Point<dim>   &p,
 //------------------------------------------------------------------------------
 double physical_flux (const double& u)
 {
-   return u;
+   return speed * u;
 }
 
 
@@ -233,7 +236,7 @@ void CentralFlux (const double& left_state,
                   const double& right_state,
                   double& flux)
 {
-   flux = 0.5*(left_state + right_state);
+   flux = 0.5*speed*(left_state + right_state);
 }
 
 //------------------------------------------------------------------------------
@@ -243,7 +246,7 @@ void UpwindFlux (const double& left_state,
                  const double& right_state,
                  double& flux)
 {
-   flux = left_state;
+   flux  = speed*((speed > 0) ? left_state : right_state);
 }
 
 //------------------------------------------------------------------------------
@@ -548,7 +551,7 @@ void ScalarProblem<dim>::initialize ()
       
       // Multiply by inverse mass matrix and add to rhs
       cell->get_dof_indices (local_dof_indices);
-      unsigned int ig, jg;
+      unsigned int ig;
       for (unsigned int i=0; i<dofs_per_cell; ++i)
       {
          ig = local_dof_indices[i];
@@ -690,7 +693,7 @@ void ScalarProblem<dim>::assemble_rhs ()
 
         // Multiply by inverse mass matrix and add to rhs
         cell->get_dof_indices (local_dof_indices);
-        unsigned int ig, jg;
+        unsigned int ig;
         for (unsigned int i=0; i<dofs_per_cell; ++i)
         {
             ig = local_dof_indices[i];
@@ -801,8 +804,7 @@ void ScalarProblem<dim>::apply_TVD_limiter ()
    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
    
    typename DoFHandler<dim>::active_cell_iterator
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
+      cell = dof_handler.begin_active();
    
    for (unsigned int c=0; c<n_cells; ++c, ++cell)
    {
@@ -855,7 +857,7 @@ void ScalarProblem<dim>::apply_limiter ()
 template <int dim>
 void ScalarProblem<dim>::compute_dt ()
 {
-   dt = cfl * dx;
+   dt = cfl * dx / fabs(speed);
 }
 
 //------------------------------------------------------------------------------
@@ -881,18 +883,18 @@ void ScalarProblem<dim>::output_results (const double& time) const
 {
    static unsigned int c = 0;
 
-    DataOut<dim> data_out;
+   DataOut<dim> data_out;
 
-    data_out.attach_dof_handler (dof_handler);
-    data_out.add_data_vector (solution, "solution");
+   data_out.attach_dof_handler (dof_handler);
+   data_out.add_data_vector (solution, "solution");
 
-    if(fe.degree <= 1)
-       data_out.build_patches (1);
-    else
-       data_out.build_patches (2*fe.degree);
+   if(fe.degree <= 1)
+      data_out.build_patches (1);
+   else
+      data_out.build_patches (2*fe.degree);
    
-    std::string filename = "sol_" + Utilities::int_to_string(c) + ".gpl";
-   std::cout << filename << std::endl;
+   std::string filename = "sol_" + Utilities::int_to_string(c) + ".gpl";
+   std::cout << "t = " << time << "  " << filename << std::endl;
    
    std::ofstream output (filename);
    data_out.write_gnuplot (output);
