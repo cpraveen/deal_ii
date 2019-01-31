@@ -41,7 +41,7 @@ const double a_rk[3] = {0.0, 3.0/4.0, 1.0/3.0};
 const double b_rk[3] = {1.0, 1.0/4.0, 2.0/3.0};
 
 // Numerical flux functions
-enum FluxType {upwind};
+enum FluxType {godunov,rusanov,roe};
 enum TestCase {sine, hat};
 enum LimiterType {none, tvd};
 
@@ -57,6 +57,7 @@ struct Parameter
    unsigned int n_cells;
    unsigned int output_step;
    unsigned int nstep;
+   FluxType flux_type;
    LimiterType limiter_type;
 };
 
@@ -203,13 +204,39 @@ double physical_flux (const double& u)
 }
 
 //------------------------------------------------------------------------------
-// Upwind flux
+// Godunov flux
 //------------------------------------------------------------------------------
-void UpwindFlux (const double& left_state,
-                 const double& right_state,
-                 const double& left_avg,
-                 const double& right_avg,
-                 double& flux)
+void GodunovFlux (const double & left_state,
+                  const double & right_state,
+                  double       & flux)
+{
+   double u1 = std::max(0.0, left_state);
+   double u2 = std::min(0.0, right_state);
+   flux = std::max( physical_flux(u1), physical_flux(u2));
+}
+
+//------------------------------------------------------------------------------
+// Roe flux
+//------------------------------------------------------------------------------
+void RoeFlux (const double & left_state,
+              const double & right_state,
+              const double & left_avg,
+              const double & right_avg,
+              double       & flux)
+{
+   double lam = std::fabs( 0.5*(left_avg + right_avg) );
+   flux = 0.5 * ( physical_flux(left_state) + physical_flux(right_state) )
+        - 0.5 * lam * (right_state - left_state);
+}
+
+//------------------------------------------------------------------------------
+// Rusanov flux
+//------------------------------------------------------------------------------
+void RusanovFlux (const double & left_state,
+                  const double & right_state,
+                  const double & left_avg,
+                  const double & right_avg,
+                  double       & flux)
 {
    double lam = std::max( std::fabs(left_avg), std::fabs(right_avg) );
    flux = 0.5 * ( physical_flux(left_state) + physical_flux(right_state) )
@@ -219,19 +246,27 @@ void UpwindFlux (const double& left_state,
 //------------------------------------------------------------------------------
 // Compute flux across cell faces
 //------------------------------------------------------------------------------
-void numerical_flux (const FluxType& flux_type,
-                     double& left_state,
-                     double& right_state,
-                     double& left_avg,
-                     double& right_avg,
-                     double& flux)
+void numerical_flux (const FluxType & flux_type,
+                     double         & left_state,
+                     double         & right_state,
+                     double         & left_avg,
+                     double         & right_avg,
+                     double         & flux)
 {
    switch (flux_type)
    {
-      case upwind:
-         UpwindFlux (left_state, right_state, left_avg, right_avg, flux);
+      case godunov:
+         GodunovFlux (left_state, right_state, flux);
          break;
-         
+
+      case roe:
+         RoeFlux (left_state, right_state, left_avg, right_avg, flux);
+         break;
+
+      case rusanov:
+         RusanovFlux (left_state, right_state, left_avg, right_avg, flux);
+         break;
+
       default:
          std::cout << "Unknown flux_type !!!\n";
          abort ();
@@ -308,6 +343,7 @@ ScalarProblem<dim>::ScalarProblem (Parameter param,
     debug (debug),
     n_cells (param.n_cells),
     cfl (param.cfl),
+    flux_type (param.flux_type),
     limiter_type (param.limiter_type),
     nstep (param.nstep),
     output_step (param.output_step),
@@ -319,8 +355,7 @@ ScalarProblem<dim>::ScalarProblem (Parameter param,
    final_time = param.final_time;
    
    n_rk_stages = 3;
-   flux_type = upwind;
-   
+
    if(test_case == sine)
    {
       xmin    = 0.0;
@@ -511,7 +546,7 @@ void ScalarProblem<dim>::initialize ()
       
       // Multiply by inverse mass matrix and add to rhs
       cell->get_dof_indices (local_dof_indices);
-      unsigned int ig, jg;
+      unsigned int ig;
       for (unsigned int i=0; i<dofs_per_cell; ++i)
       {
          ig = local_dof_indices[i];
@@ -661,7 +696,7 @@ void ScalarProblem<dim>::assemble_rhs ()
 
         // Multiply by inverse mass matrix and add to rhs
         cell->get_dof_indices (local_dof_indices);
-        unsigned int ig, jg;
+        unsigned int ig;
         for (unsigned int i=0; i<dofs_per_cell; ++i)
         {
             ig = local_dof_indices[i];
@@ -772,8 +807,7 @@ void ScalarProblem<dim>::apply_TVD_limiter ()
    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
    
    typename DoFHandler<dim>::active_cell_iterator
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
+      cell = dof_handler.begin_active();
    
    for (unsigned int c=0; c<n_cells; ++c, ++cell)
    {
@@ -848,29 +882,28 @@ void ScalarProblem<dim>::update (const unsigned int rk_stage)
 // Save solution to file
 //------------------------------------------------------------------------------
 template <int dim>
-void ScalarProblem<dim>::output_results (const double& time) const
+void ScalarProblem<dim>::output_results (const double & time) const
 {
    static unsigned int c = 0;
 
-    DataOut<dim> data_out;
+   DataOut<dim> data_out;
+   data_out.attach_dof_handler (dof_handler);
+   data_out.add_data_vector (solution, "solution");
 
-    data_out.attach_dof_handler (dof_handler);
-    data_out.add_data_vector (solution, "solution");
-
-    if(fe.degree <= 1)
-       data_out.build_patches (1);
-    else
-       data_out.build_patches (2*fe.degree);
+   if(fe.degree <= 1)
+      data_out.build_patches (1);
+   else
+      data_out.build_patches (2*fe.degree);
    
-    std::string filename = "sol_" + Utilities::int_to_string(c) + ".gpl";
-   std::cout << filename << std::endl;
+   std::string filename = "sol_" + Utilities::int_to_string(c) + ".gpl";
+   std::cout << time << " " << filename << std::endl;
    
    std::ofstream output (filename);
    data_out.write_gnuplot (output);
-      
-   typename DoFHandler<dim>::active_cell_iterator 
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
+
+   typename DoFHandler<dim>::active_cell_iterator
+   cell = dof_handler.begin_active(),
+   endc = dof_handler.end();
 
    std::ofstream fo;
    filename = "avg_" + Utilities::int_to_string(c) + ".gpl";
@@ -1035,6 +1068,7 @@ int main ()
        param.test_case = sine;
        param.cfl = 0.9/(2.0*param.degree+1.0);
        param.final_time = 2;
+       param.flux_type = godunov;
        param.limiter_type = tvd;
        
        bool debug = false;
