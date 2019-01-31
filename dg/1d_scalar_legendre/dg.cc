@@ -930,8 +930,8 @@ void ScalarProblem<dim>::solve ()
     //make_grid_and_dofs();
     assemble_mass_matrix ();
     initialize ();
-    output_results (0.0);
     compute_averages ();
+    output_results (0.0);
 
     double time = 0.0;
     unsigned int iter = 0;
@@ -1061,10 +1061,10 @@ int main ()
        Parameter param;
        param.degree       = 1;
        param.n_cells      = 50;
-       param.nstep        = 1;
+       param.nstep        = 1;      // number of refinements
        param.output_step  = 10;
        param.test_case    = sine;   // sine, hat, trihat
-       param.cfl          = 0.9/(2.0*param.degree+1.0);
+       param.cfl          = 0.98/(2.0*param.degree+1.0);
        param.final_time   = 10;
        param.limiter_type = none;   // none, tvd
        param.flux_type    = upwind; // central, upwind
