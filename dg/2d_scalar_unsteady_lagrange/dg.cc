@@ -33,12 +33,9 @@
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/fe/mapping_q1.h>
-		
 #include <deal.II/fe/fe_dgq.h>
-				 
 #include <deal.II/numerics/derivative_approximation.h>
 #include <deal.II/numerics/solution_transfer.h>
-
 #include <deal.II/meshworker/dof_info.h>
 #include <deal.II/meshworker/integration_info.h>
 #include <deal.II/meshworker/simple.h>
@@ -118,7 +115,7 @@ void BoundaryValues<dim>::value_list(const std::vector<Point<dim> > &points,
    
    for (unsigned int i=0; i<values.size(); ++i)
    {
-      values[i]=0.0;
+      values[i] = 0.0;
    }
 }
 
@@ -157,20 +154,20 @@ class Step12
       void compute_dt ();
       void solve ();
       void refine_grid ();
-      void output_results (const unsigned int cycle) const;
+      void output_results (const double time) const;
       
       Triangulation<dim>   triangulation;
       const MappingQ1<dim> mapping;
    
-      unsigned int         degree;
-      FE_DGQ<dim>          fe;
-      DoFHandler<dim>      dof_handler;
+      unsigned int               degree;
+      FE_DGQArbitraryNodes<dim>  fe;
+      DoFHandler<dim>            dof_handler;
       
-      std::vector< FullMatrix<double> > inv_mass_matrix;
       
       Vector<double>       solution;
       Vector<double>       solution_old;
       Vector<double>       right_hand_side;
+      Vector<double>       inv_mass_matrix;
       double               dt;
       double               cfl;
    
@@ -191,10 +188,10 @@ Step12<dim>::Step12 (unsigned int degree)
       :
       mapping (),
       degree (degree),
-      fe (degree),
+      fe (QGauss<1>(degree+1)),
       dof_handler (triangulation)
 {
-   cfl = 0.8/(2.0*degree + 1.0);
+   cfl = 0.98/(2.0*degree + 1.0);
 }
 
 //------------------------------------------------------------------------------
@@ -206,13 +203,10 @@ void Step12<dim>::setup_system ()
    std::cout << "Allocating memory ...\n";
 
    dof_handler.distribute_dofs (fe);
-   
-   inv_mass_matrix.resize (triangulation.n_cells(), 
-                           FullMatrix<double>(fe.dofs_per_cell,
-                                              fe.dofs_per_cell));
    solution.reinit (dof_handler.n_dofs());
    solution_old.reinit (dof_handler.n_dofs());
    right_hand_side.reinit (dof_handler.n_dofs());
+   inv_mass_matrix.reinit (dof_handler.n_dofs());
 }
 
 //------------------------------------------------------------------------------
@@ -225,33 +219,18 @@ void Step12<dim>::assemble_mass_matrix ()
    std::cout << "Constructing mass matrix ...\n";
    
    QGauss<dim>  quadrature_formula(fe.degree+1);
-   
-   FEValues<dim> fe_values (fe, quadrature_formula,
-                            update_values | update_JxW_values);
-   
+   FEValues<dim> fe_values (fe, 
+                            quadrature_formula,
+                            update_JxW_values);
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
-   const unsigned int   n_q_points    = quadrature_formula.size();
-   
-   FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
+   std::vector<unsigned int> local_dof_indices(dofs_per_cell);
       
-   // Cell iterator
-   typename DoFHandler<dim>::active_cell_iterator 
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
-   for (unsigned int c = 0; cell!=endc; ++cell, ++c)
+   for (auto cell : dof_handler.active_cell_iterators())
    {
       fe_values.reinit (cell);
-      cell_matrix = 0.0;
-      
-      for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
-         for (unsigned int i=0; i<dofs_per_cell; ++i)
-            for (unsigned int j=0; j<dofs_per_cell; ++j)
-               cell_matrix(i,j) += fe_values.shape_value (i, q_point) *
-                                   fe_values.shape_value (j, q_point) *
-                                   fe_values.JxW (q_point);
-      
-      // Invert cell_matrix
-      inv_mass_matrix[c].invert (cell_matrix);      
+      cell->get_dof_indices(local_dof_indices);
+      for(unsigned int i=0; i<dofs_per_cell; ++i)
+         inv_mass_matrix(local_dof_indices[i]) = 1.0/fe_values.JxW(i);
    }
    
 }
@@ -262,30 +241,10 @@ template <int dim>
 void Step12<dim>::set_initial_condition ()
 {
    VectorTools::create_right_hand_side(dof_handler,
-                                       QGauss<dim>(2),
+                                       QGauss<dim>(fe.degree+1),
                                        InitialCondition<dim>(),
                                        solution);
-   
-   // Multiply by inverse mass matrix
-   const unsigned int   dofs_per_cell = fe.dofs_per_cell;
-   std::vector<unsigned int> local_dof_indices (dofs_per_cell);
-   Vector<double> rhs (dofs_per_cell);
-   typename DoFHandler<dim>::active_cell_iterator
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
-   for (unsigned int c = 0; cell!=endc; ++cell, ++c)
-   {
-      cell->get_dof_indices (local_dof_indices);
-      
-      rhs = 0.0;
-      for (unsigned int i=0; i<dofs_per_cell; ++i)
-         for (unsigned int j=0; j<dofs_per_cell; ++j)
-            rhs(i) += inv_mass_matrix[c](i,j) *
-                      solution(local_dof_indices[j]);
-      
-      for (unsigned int i=0; i<dofs_per_cell; ++i)
-         solution(local_dof_indices[i]) = rhs(i);
-   }
+   solution.scale (inv_mass_matrix);
 }
 //------------------------------------------------------------------------------
 // Create mesh worker for integration
@@ -336,13 +295,9 @@ void Step12<dim>::compute_dt ()
       
    dt = 1.0e20;
    
-   // Cell iterator
-   typename DoFHandler<dim>::active_cell_iterator 
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
-   for (unsigned int c = 0; cell!=endc; ++cell, ++c)
+   for (auto cell : dof_handler.active_cell_iterators())
    {
-      double h = cell->diameter ();
+      double h = cell->minimum_vertex_distance();
       const Point<dim> cell_center = cell->center();
       Point<dim> beta;
       advection_speed(cell_center, beta);
@@ -372,26 +327,7 @@ void Step12<dim>::assemble_rhs (RHSIntegrator<dim>& rhs_integrator)
        &Step12<dim>::integrate_face_term,
        rhs_integrator.assembler);
 
-   // Multiply by inverse mass matrix
-   const unsigned int   dofs_per_cell = fe.dofs_per_cell;
-   std::vector<unsigned int> local_dof_indices (dofs_per_cell);
-   Vector<double> rhs (dofs_per_cell);
-   typename DoFHandler<dim>::active_cell_iterator 
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
-   for (unsigned int c = 0; cell!=endc; ++cell, ++c)
-   {
-      cell->get_dof_indices (local_dof_indices);
-
-      rhs = 0.0;
-      for (unsigned int i=0; i<dofs_per_cell; ++i)
-         for (unsigned int j=0; j<dofs_per_cell; ++j)
-            rhs(i) += inv_mass_matrix[c](i,j) * 
-                      right_hand_side(local_dof_indices[j]);
-
-      for (unsigned int i=0; i<dofs_per_cell; ++i)
-         right_hand_side(local_dof_indices[i]) = rhs(i);
-   }
+   right_hand_side.scale (inv_mass_matrix);
 }
 
 //------------------------------------------------------------------------------
@@ -543,7 +479,7 @@ void Step12<dim>::solve ()
       ++iter; time += dt;
       std::cout << "Iterations=" << iter 
                 << ", t = " << time << std::endl;
-      if(std::fmod(iter,10)==0) output_results(iter);
+      if(std::fmod(iter,10) == 0) output_results(time);
    }
    
 }
@@ -587,18 +523,24 @@ void Step12<dim>::refine_grid ()
 // Save results to file
 //------------------------------------------------------------------------------
 template <int dim>
-void Step12<dim>::output_results (const unsigned int cycle) const
+void Step12<dim>::output_results (const double time) const
 {
+   static unsigned int cycle = 0;
+
    // Output of the solution in
-   std::string filename = "sol-" + Utilities::int_to_string(cycle,5) + ".vtk";
+   std::string filename = "sol-" + Utilities::int_to_string(cycle,3) + ".vtk";
    std::cout << "Writing solution to <" << filename << ">" << std::endl;
    std::ofstream outfile (filename.c_str());
    
    DataOut<dim> data_out;
    data_out.attach_dof_handler (dof_handler);
    data_out.add_data_vector (solution, "u");
-   data_out.build_patches ();
+   data_out.build_patches (fe.degree);
+   DataOutBase::VtkFlags flags(time, cycle);
+   data_out.set_flags(flags);
    data_out.write_vtk (outfile);
+
+   ++cycle;
 }
 
 //------------------------------------------------------------------------------
@@ -622,7 +564,7 @@ void Step12<dim>::run ()
    
    assemble_mass_matrix ();
    set_initial_condition ();
-   output_results(0);
+   output_results(0.0);
    solve ();
 }
 
