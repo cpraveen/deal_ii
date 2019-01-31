@@ -860,7 +860,12 @@ void ScalarProblem<dim>::apply_limiter ()
 template <int dim>
 void ScalarProblem<dim>::compute_dt ()
 {
-   dt = cfl * dx;
+   double maxspeed = 0;
+   for (unsigned int c=0; c<n_cells; ++c)
+   {
+      maxspeed = std::max(maxspeed, std::abs(average[c]));
+   }
+   dt = cfl * dx / maxspeed;
 }
 
 //------------------------------------------------------------------------------
@@ -1066,7 +1071,7 @@ int main ()
        param.nstep = 1;
        param.output_step = 10;
        param.test_case = sine;
-       param.cfl = 0.9/(2.0*param.degree+1.0);
+       param.cfl = 0.98/(2.0*param.degree+1.0);
        param.final_time = 2;
        param.flux_type = godunov;
        param.limiter_type = tvd;
