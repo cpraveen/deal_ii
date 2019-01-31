@@ -17,32 +17,32 @@
 // hand side and multipy by inverse mass mass matrix. After that
 // solution is advanced to new time level by an RK scheme.
 
-#include <base/quadrature_lib.h>
-#include <base/function.h>
-#include <lac/vector.h>
-#include <grid/tria.h>
-#include <grid/grid_generator.h>
-#include <grid/grid_out.h>
-#include <grid/grid_refinement.h>
-#include <grid/tria_accessor.h>
-#include <grid/tria_iterator.h>
-#include <fe/fe_values.h>
-#include <dofs/dof_handler.h>
-#include <dofs/dof_accessor.h>
-#include <dofs/dof_tools.h>
-#include <numerics/data_out.h>
-#include <numerics/vector_tools.h>
-#include <fe/mapping_q1.h>
+#include <deal.II/base/quadrature_lib.h>
+#include <deal.II/base/function.h>
+#include <deal.II/lac/vector.h>
+#include <deal.II/grid/tria.h>
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_out.h>
+#include <deal.II/grid/grid_refinement.h>
+#include <deal.II/grid/tria_accessor.h>
+#include <deal.II/grid/tria_iterator.h>
+#include <deal.II/fe/fe_values.h>
+#include <deal.II/dofs/dof_handler.h>
+#include <deal.II/dofs/dof_accessor.h>
+#include <deal.II/dofs/dof_tools.h>
+#include <deal.II/numerics/data_out.h>
+#include <deal.II/numerics/vector_tools.h>
+#include <deal.II/fe/mapping_q1.h>
 		
-#include <fe/fe_dgq.h>
+#include <deal.II/fe/fe_dgq.h>
 				 
-#include <numerics/derivative_approximation.h>
-#include <numerics/solution_transfer.h>
+#include <deal.II/numerics/derivative_approximation.h>
+#include <deal.II/numerics/solution_transfer.h>
 
-#include <meshworker/dof_info.h>
-#include <meshworker/integration_info.h>
-#include <meshworker/simple.h>
-#include <meshworker/loop.h>
+#include <deal.II/meshworker/dof_info.h>
+#include <deal.II/meshworker/integration_info.h>
+#include <deal.II/meshworker/simple.h>
+#include <deal.II/meshworker/loop.h>
 
 #include <iostream>
 #include <fstream>
@@ -306,8 +306,8 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
                                         n_gauss_points);
 
    // Add solution vector to info_box
-   NamedData< Vector<double>* > solution_data;
-   solution_data.add (&solution, "solution");
+   AnyData solution_data;
+   solution_data.add<Vector<double>*> (&solution, "solution");
    info_box.cell_selector.add     ("solution", true, false, false);
    info_box.boundary_selector.add ("solution", true, false, false);
    info_box.face_selector.add     ("solution", true, false, false);
@@ -318,12 +318,11 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
    info_box.add_update_flags_boundary (update_values);
    info_box.add_update_flags_face     (update_values);
 
-   info_box.initialize (fe, mapping, solution_data);
+   info_box.initialize (fe, mapping, solution_data, Vector<double>());
    
    // Attach rhs vector to assembler
-   NamedData< Vector<double>* > rhs;
-   Vector<double>* data = &right_hand_side;
-   rhs.add (data, "RHS");
+   AnyData rhs;
+   rhs.add<Vector<double>*> (&right_hand_side, "RHS");
    assembler.initialize (rhs);
 }
 
@@ -371,7 +370,7 @@ void Step12<dim>::assemble_rhs (RHSIntegrator<dim>& rhs_integrator)
        &Step12<dim>::integrate_cell_term,
        &Step12<dim>::integrate_boundary_term,
        &Step12<dim>::integrate_face_term,
-       rhs_integrator.assembler, true);
+       rhs_integrator.assembler);
 
    // Multiply by inverse mass matrix
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
@@ -429,7 +428,7 @@ void Step12<dim>::integrate_boundary_term (DoFInfo& dinfo, CellInfo& info)
    Vector<double>& local_vector = dinfo.vector(0).block(0);
    
    const std::vector<double>& JxW = fe_v.get_JxW_values ();
-   const std::vector<Point<dim> >& normals = fe_v.get_normal_vectors ();
+   const std::vector<Tensor<1,dim>>& normals = fe_v.get_normal_vectors ();
    
    std::vector<double> g(fe_v.n_quadrature_points);
    
@@ -474,7 +473,7 @@ void Step12<dim>::integrate_face_term (DoFInfo& dinfo1, DoFInfo& dinfo2,
    Vector<double>& local_vector2 = dinfo2.vector(0).block(0);
    
    const std::vector<double>& JxW = fe_v.get_JxW_values ();
-   const std::vector<Point<dim> >& normals = fe_v.get_normal_vectors ();
+   const std::vector<Tensor<1,dim>>& normals = fe_v.get_normal_vectors ();
    
    for (unsigned int point=0; point<fe_v.n_quadrature_points; ++point)
    {
@@ -543,7 +542,7 @@ void Step12<dim>::solve ()
       
       ++iter; time += dt;
       std::cout << "Iterations=" << iter 
-                << ", t = " << time << endl;
+                << ", t = " << time << std::endl;
       if(std::fmod(iter,10)==0) output_results(iter);
    }
    
@@ -598,9 +597,7 @@ void Step12<dim>::output_results (const unsigned int cycle) const
    DataOut<dim> data_out;
    data_out.attach_dof_handler (dof_handler);
    data_out.add_data_vector (solution, "u");
-   
    data_out.build_patches ();
-   
    data_out.write_vtk (outfile);
 }
 
