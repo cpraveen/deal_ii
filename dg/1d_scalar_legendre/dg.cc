@@ -45,7 +45,7 @@ const double speed = 1.0;
 
 // Numerical flux functions
 enum FluxType {central, upwind};
-enum TestCase {sine, hat, trihat};
+enum TestCase {sine, hat, trihat, expo};
 enum LimiterType {none, tvd};
 
 //------------------------------------------------------------------------------
@@ -141,6 +141,10 @@ double InitialCondition<dim>::value (const Point<dim> &p,
       else
          value = 1.0 - 2.0*x;
    }
+   else if(test_case == expo)
+   {
+      value = exp(-10.0*x*x);
+   }
    else
    {
       AssertThrow(false, ExcMessage("Unknown test case"));
@@ -209,6 +213,10 @@ Tensor<1,dim> Solution<dim>::gradient (const Point<dim>   &p,
          values[0] = 2.0;
       else
          values[0] = -2.0;
+   }
+   else if(test_case == expo)
+   {
+      values[0] = -20.0*x*exp(-10.0*x*x);
    }
    else
    {
@@ -370,6 +378,11 @@ ScalarProblem<dim>::ScalarProblem (Parameter param,
    {
       xmin    = -1.0;
       xmax    = +1.0;
+   }
+   else if(test_case == expo)
+   {
+      xmin    = -20.0;
+      xmax    = +20.0;
    }
    else
    {
