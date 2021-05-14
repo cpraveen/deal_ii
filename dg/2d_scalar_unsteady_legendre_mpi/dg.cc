@@ -331,10 +331,9 @@ Step12<dim>::Step12 (unsigned int degree,
 {
    cfl = 0.9/(2.0*degree + 1.0);
 
-      MultithreadInfo multithread_info;
       pcout << "Number of threads = "
-            << multithread_info.n_threads () << std::endl;
-      if(multithread_info.is_running_single_threaded())
+            << MultithreadInfo::n_threads () << std::endl;
+      if(MultithreadInfo::is_running_single_threaded())
          pcout << "Running with single thread\n";
       else
          pcout << "Running with multiple threads\n";
@@ -374,7 +373,6 @@ void Step12<dim>::setup_system ()
    bcell.resize(triangulation.n_active_cells());
    tcell.resize(triangulation.n_active_cells());
    
-   const double EPS = 1.0e-10;
    typename DoFHandler<dim>::active_cell_iterator
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
@@ -394,19 +392,19 @@ void Step12<dim>::setup_system ()
             neighbor = cell->neighbor(face_no);
             Assert(neighbor->level() == cell->level() || neighbor->level() == cell->level()-1,
                    ExcInternalError());
-            Point<dim> dr = neighbor->center() - cell->center();
-            if(dr(0) < -0.5*dx)
+            Tensor<1,dim> dr = neighbor->center() - cell->center();
+            if(dr[0] < -0.5*dx)
                lcell[c] = neighbor;
-            else if(dr(0) > 0.5*dx)
+            else if(dr[0] > 0.5*dx)
                rcell[c] = neighbor;
-            else if(dr(1) < -0.5*dx)
+            else if(dr[1] < -0.5*dx)
                bcell[c] = neighbor;
-            else if(dr(1) > 0.5*dx)
+            else if(dr[1] > 0.5*dx)
                tcell[c] = neighbor;
             else
             {
                std::cout << "Did not find all neighbours\n";
-               std::cout << "dx, dy = " << dr(0) << "  " << dr(1) << std::endl;
+               std::cout << "dx, dy = " << dr[0] << "  " << dr[1] << std::endl;
                exit(0);
             }
          }
@@ -432,7 +430,7 @@ double Step12<dim>::compute_cell_average(const typename DoFHandler<dim>::cell_it
 {
    std::vector<unsigned int> dof_indices(fe.dofs_per_cell);
    
-   if(cell->active())
+   if(cell->is_active())
    {
       cell->get_dof_indices(dof_indices);
       return solution(dof_indices[0]);
@@ -514,7 +512,9 @@ void Step12<dim>::set_initial_condition ()
    const unsigned int n_q_points = quadrature_formula.size();
    
    FEValues<dim> fe_values (fe, quadrature_formula,
-                            update_values | update_q_points | update_JxW_values);
+                            update_values | 
+                            update_quadrature_points | 
+                            update_JxW_values);
    
    // Multiply by inverse mass matrix
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
@@ -571,8 +571,8 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
                                         n_gauss_points);
 
    // Add solution vector to info_box
-   NamedData< LA::MPI::Vector* > solution_data;
-   solution_data.add (&solution, "solution");
+   AnyData solution_data;
+   solution_data.add<LA::MPI::Vector*> (&solution, "solution");
    info_box.cell_selector.add     ("solution", true, false, false);
    info_box.boundary_selector.add ("solution", true, false, false);
    info_box.face_selector.add     ("solution", true, false, false);
@@ -583,13 +583,11 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
    info_box.add_update_flags_boundary (update_values);
    info_box.add_update_flags_face     (update_values);
 
-   info_box.initialize (fe, mapping, solution_data);
+   info_box.initialize (fe, mapping, solution_data, LA::MPI::Vector());
    
    // Attach rhs vector to assembler
-   NamedData< LA::MPI::Vector* > rhs;
-   LA::MPI::Vector* data;
-   data = &right_hand_side;
-   rhs.add (data, "RHS");
+   AnyData rhs;
+   rhs.add<LA::MPI::Vector*> (&right_hand_side, "RHS");
 
    assembler.initialize (rhs);
 }
@@ -708,7 +706,7 @@ void Step12<dim>::integrate_boundary_term (DoFInfo& dinfo, CellInfo& info)
    Vector<double>& local_vector = dinfo.vector(0).block(0);
    
    const std::vector<double>& JxW = fe_v.get_JxW_values ();
-   const std::vector<Point<dim> >& normals = fe_v.get_normal_vectors ();
+   const std::vector<Tensor<1,dim> >& normals = fe_v.get_normal_vectors ();
    
    std::vector<double> g(fe_v.n_quadrature_points);
    
@@ -746,7 +744,7 @@ void Step12<dim>::integrate_face_term (DoFInfo& dinfo1, DoFInfo& dinfo2,
    Vector<double>& local_vector2 = dinfo2.vector(0).block(0);
    
    const std::vector<double>& JxW = fe_v.get_JxW_values ();
-   const std::vector<Point<dim> >& normals = fe_v.get_normal_vectors ();
+   const std::vector<Tensor<1,dim> >& normals = fe_v.get_normal_vectors ();
    
    for (unsigned int point=0; point<fe_v.n_quadrature_points; ++point)
    {
@@ -1246,7 +1244,7 @@ void Step12<dim>::output_results (double time)
                                         ".vtu");
          all_files.push_back (filenames);
          std::ofstream visit_output ("master_file.visit");
-         data_out.write_visit_record(visit_output, all_files);
+         DataOutBase::write_visit_record(visit_output, all_files);
       }
    }
    

@@ -418,7 +418,7 @@ double Step12<dim>::compute_cell_average(const typename DoFHandler<dim>::cell_it
 {
    std::vector<unsigned int> dof_indices(fe.dofs_per_cell);
    
-   if(cell->active())
+   if(cell->is_active())
    {
       cell->get_dof_indices(dof_indices);
       return solution(dof_indices[0]);
