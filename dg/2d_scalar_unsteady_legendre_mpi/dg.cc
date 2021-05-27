@@ -12,7 +12,7 @@
 
 // Modifications by Juan Pablo Gallego and Praveen. C
 // Explicit time-stepping Runge-Kutta DG method
-// Mass matrix on each cell is computed, inverted and the inverse 
+// Mass matrix on each cell is computed, inverted and the inverse
 // is stored. Then in each time iteration, we need to compute right
 // hand side and multipy by inverse mass mass matrix. After that
 // solution is advanced to new time level by an RK scheme.
@@ -152,7 +152,7 @@ void InitialCondition<dim>::value_list(const std::vector<Point<dim> > &points,
 {
    Assert(values.size()==points.size(),
           ExcDimensionMismatch(values.size(),points.size()));
-   
+
    if(test_case == expo)
       for (unsigned int i=0; i<values.size(); ++i)
       {
@@ -206,7 +206,7 @@ void BoundaryValues<dim>::value_list(const std::vector<Point<dim> > &points,
 {
    Assert(values.size()==points.size(),
           ExcDimensionMismatch(values.size(),points.size()));
-   
+
    for (unsigned int i=0; i<values.size(); ++i)
    {
       values[i]=1.0;
@@ -240,7 +240,7 @@ public:
            LimiterType  limiter_type,
            TestCase     test_case);
    void run ();
-   
+
 private:
    void setup_system ();
    void assemble_mass_matrix ();
@@ -257,26 +257,25 @@ private:
    void compute_min_max ();
    void output_results (double time);
    double compute_cell_average(const typename DoFHandler<dim>::cell_iterator& cell);
-   
+
    MPI_Comm 					  mpi_communicator;
-   
+
    parallel::distributed::Triangulation<dim>   triangulation;
-   
+
    const MappingQ1<dim> mapping;
-   
+
    unsigned int         degree;
    FE_DGP<dim>          fe;
    DoFHandler<dim>      dof_handler;
    FE_DGP<dim>          fe_cell;
    DoFHandler<dim>      dof_handler_cell;
-   
+
    IndexSet 		      locally_owned_dofs;
    IndexSet 		      locally_relevant_dofs;
-   
+
    LA::MPI::Vector      mass_matrix;
    LA::MPI::Vector      solution;
    LA::MPI::Vector      solution_old;
-   LA::MPI::Vector      average;
    LA::MPI::Vector      right_hand_side;
    Vector<double>       shock_indicator;
    Vector<double>       jump_indicator;
@@ -287,20 +286,20 @@ private:
    TestCase             test_case;
    double               sol_min, sol_max;
    double               h_min, h_max;
-   
+
    std::vector<typename DoFHandler<dim>::cell_iterator>
    lcell, rcell, bcell, tcell;
-   
+
    typedef MeshWorker::DoFInfo<dim> DoFInfo;
    typedef MeshWorker::IntegrationInfo<dim> CellInfo;
-   
+
    static void integrate_cell_term (DoFInfo& dinfo, CellInfo& info);
    static void integrate_boundary_term (DoFInfo& dinfo, CellInfo& info);
    static void integrate_face_term (DoFInfo& dinfo1, DoFInfo& dinfo2,
                                     CellInfo& info1, CellInfo& info2);
    ConditionalOStream 	pcout;
    TimerOutput 		computing_timer;
-   
+
 };
 
 //------------------------------------------------------------------------------
@@ -361,18 +360,17 @@ void Step12<dim>::setup_system ()
    right_hand_side.reinit (locally_owned_dofs, mpi_communicator);
 
    mass_matrix.reinit (locally_owned_dofs, mpi_communicator);
-   
-   average.reinit (locally_owned_dofs, mpi_communicator);
+
    shock_indicator.reinit(triangulation.n_active_cells());
    jump_indicator.reinit (triangulation.n_active_cells());
-   
+
    // For each cell, find neighbourig cell
    // This is needed for limiter
    lcell.resize(triangulation.n_active_cells());
    rcell.resize(triangulation.n_active_cells());
    bcell.resize(triangulation.n_active_cells());
    tcell.resize(triangulation.n_active_cells());
-   
+
    typename DoFHandler<dim>::active_cell_iterator
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
@@ -384,7 +382,7 @@ void Step12<dim>::setup_system ()
       bcell[c] = endc;
       tcell[c] = endc;
       dx = cell->diameter() / std::sqrt(2.0);
-      
+
       for (unsigned int face_no=0; face_no<GeometryInfo<dim>::faces_per_cell; ++face_no)
          if (! cell->at_boundary(face_no))
          {
@@ -409,13 +407,13 @@ void Step12<dim>::setup_system ()
             }
          }
    }
-   
+
    assemble_mass_matrix ();
-   
+
    pcout << "Number of active cells:       "
          << triangulation.n_global_active_cells()
          << std::endl;
-   
+
    pcout << "Number of degrees of freedom: "
          << dof_handler.n_dofs()
          << std::endl;
@@ -429,7 +427,7 @@ template <int dim>
 double Step12<dim>::compute_cell_average(const typename DoFHandler<dim>::cell_iterator& cell)
 {
    std::vector<unsigned int> dof_indices(fe.dofs_per_cell);
-   
+
    if(cell->is_active())
    {
       cell->get_dof_indices(dof_indices);
@@ -460,22 +458,22 @@ void Step12<dim>::assemble_mass_matrix ()
    TimerOutput::Scope t(computing_timer, "mass matrix");
 
    pcout << "Constructing mass matrix ...\n";
-   
+
    QGauss<dim>  quadrature_formula(fe.degree+1);
-   
+
    FEValues<dim> fe_values (fe, quadrature_formula,
                             update_values | update_JxW_values);
-   
+
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
    const unsigned int   n_q_points    = quadrature_formula.size();
-   
+
    Vector<double>   cell_matrix (dofs_per_cell);
    std::vector<unsigned int> local_dof_indices(dofs_per_cell);
-   
+
    mass_matrix = 0;
-   
+
    // Cell iterator
-   typename DoFHandler<dim>::active_cell_iterator 
+   typename DoFHandler<dim>::active_cell_iterator
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
    for (unsigned int c = 0; cell!=endc; ++cell, ++c)
@@ -483,15 +481,15 @@ void Step12<dim>::assemble_mass_matrix ()
    {
       fe_values.reinit (cell);
       cell->get_dof_indices (local_dof_indices);
-      
+
       cell_matrix = 0.0;
-      
+
       for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
          for (unsigned int i=0; i<dofs_per_cell; ++i)
                cell_matrix(i) += fe_values.shape_value (i, q_point) *
                                  fe_values.shape_value (i, q_point) *
                                  fe_values.JxW (q_point);
-      
+
       mass_matrix.add(local_dof_indices,
                       cell_matrix);
 
@@ -507,26 +505,26 @@ void Step12<dim>::set_initial_condition ()
    TimerOutput::Scope t(computing_timer, "initial condition");
 
    pcout << "Setting initial condition ...";
-   
+
    QGauss<dim> quadrature_formula (fe.degree+1);
    const unsigned int n_q_points = quadrature_formula.size();
-   
+
    FEValues<dim> fe_values (fe, quadrature_formula,
-                            update_values | 
-                            update_quadrature_points | 
+                            update_values |
+                            update_quadrature_points |
                             update_JxW_values);
-   
+
    // Multiply by inverse mass matrix
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
    std::vector<double> initial_values (n_q_points);
    Vector<double> cell_vector(dofs_per_cell);
    InitialCondition<dim> initial_condition(test_case);
-   
+
    typename DoFHandler<dim>::active_cell_iterator
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
-   
+
    right_hand_side = 0;
    for (; cell!=endc; ++cell)
    if(cell->is_locally_owned())
@@ -544,7 +542,7 @@ void Step12<dim>::set_initial_condition ()
                               fe_values.JxW(q);
          cell_vector(i) /= mass_matrix(local_dof_indices[i]);
       }
-      
+
       right_hand_side.add(local_dof_indices, cell_vector);
    }
    right_hand_side.compress(VectorOperation::add);
@@ -557,11 +555,11 @@ void Step12<dim>::set_initial_condition ()
 //------------------------------------------------------------------------------
 template <int dim>
 void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
-{   
+{
    pcout << "Setting up mesh worker ...\n";
 
    MeshWorker::IntegrationInfoBox<dim>& info_box = rhs_integrator.info_box;
-   MeshWorker::DoFInfo<dim>& dof_info = rhs_integrator.dof_info;
+   //MeshWorker::DoFInfo<dim>& dof_info = rhs_integrator.dof_info;
    MeshWorker::Assembler::ResidualSimple< LA::MPI::Vector >&
       assembler = rhs_integrator.assembler;
 
@@ -576,7 +574,7 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
    info_box.cell_selector.add     ("solution", true, false, false);
    info_box.boundary_selector.add ("solution", true, false, false);
    info_box.face_selector.add     ("solution", true, false, false);
-   
+
    info_box.initialize_update_flags ();
    info_box.add_update_flags_all      (update_quadrature_points);
    info_box.add_update_flags_cell     (update_gradients);
@@ -584,7 +582,7 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
    info_box.add_update_flags_face     (update_values);
 
    info_box.initialize (fe, mapping, solution_data, LA::MPI::Vector());
-   
+
    // Attach rhs vector to assembler
    AnyData rhs;
    rhs.add<LA::MPI::Vector*> (&right_hand_side, "RHS");
@@ -601,11 +599,11 @@ void Step12<dim>::compute_dt ()
    TimerOutput::Scope t(computing_timer, "dt");
 
    pcout << "Computing local time-step ...\n";
-      
+
    dt = 1.0e20;
-   
+
    // Cell iterator
-   typename DoFHandler<dim>::active_cell_iterator 
+   typename DoFHandler<dim>::active_cell_iterator
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
    for (; cell!=endc; ++cell)
@@ -617,7 +615,7 @@ void Step12<dim>::compute_dt ()
       double dt_cell = 1.0 / (std::fabs(beta(0))/h + std::fabs(beta(1))/h);
       dt = std::min (dt, dt_cell);
    }
-   
+
    dt *= cfl;
    dt  = -dt;
    dt = -Utilities::MPI::max (dt, mpi_communicator);
@@ -637,12 +635,12 @@ void Step12<dim>::assemble_rhs (RHSIntegrator<dim>& rhs_integrator)
    typedef
    FilteredIterator<typename DoFHandler<dim>::active_cell_iterator>
    CellFilter;
-   
+
    MeshWorker::loop<dim, dim, MeshWorker::DoFInfo<dim>,
                     MeshWorker::IntegrationInfoBox<dim> >
       (CellFilter (IteratorFilters::LocallyOwnedCell(),dof_handler.begin_active()),
        CellFilter (IteratorFilters::LocallyOwnedCell(),dof_handler.end()),
-       rhs_integrator.dof_info, 
+       rhs_integrator.dof_info,
        rhs_integrator.info_box,
        &Step12<dim>::integrate_cell_term,
        &Step12<dim>::integrate_boundary_term,
@@ -654,7 +652,7 @@ void Step12<dim>::assemble_rhs (RHSIntegrator<dim>& rhs_integrator)
    // Multiply by inverse mass matrix
    const unsigned int dofs_per_cell = fe.dofs_per_cell;
    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
-   typename DoFHandler<dim>::active_cell_iterator 
+   typename DoFHandler<dim>::active_cell_iterator
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
    for (; cell!=endc; ++cell)
@@ -680,12 +678,12 @@ void Step12<dim>::integrate_cell_term (DoFInfo& dinfo, CellInfo& info)
    const std::vector<double>& sol = info.values[0][0];
    Vector<double>& local_vector   = dinfo.vector(0).block(0);
    const std::vector<double>& JxW = fe_v.get_JxW_values ();
-   
+
    for (unsigned int point=0; point<fe_v.n_quadrature_points; ++point)
    {
       Point<dim> beta;
       advection_speed(fe_v.quadrature_point(point), beta);
-      
+
       for (unsigned int i=0; i<fe_v.dofs_per_cell; ++i)
          local_vector(i) += beta *
                             fe_v.shape_grad(i,point) *
@@ -704,20 +702,20 @@ void Step12<dim>::integrate_boundary_term (DoFInfo& dinfo, CellInfo& info)
    const std::vector<double>& sol = info.values[0][0];
 
    Vector<double>& local_vector = dinfo.vector(0).block(0);
-   
+
    const std::vector<double>& JxW = fe_v.get_JxW_values ();
    const std::vector<Tensor<1,dim> >& normals = fe_v.get_normal_vectors ();
-   
+
    std::vector<double> g(fe_v.n_quadrature_points);
-   
+
    static BoundaryValues<dim> boundary_function;
    boundary_function.value_list (fe_v.get_quadrature_points(), g);
-   
+
    for (unsigned int point=0; point<fe_v.n_quadrature_points; ++point)
    {
       Point<dim> beta;
       advection_speed(fe_v.quadrature_point(point), beta);
-      
+
       const double beta_n = beta * normals[point];
       const double flux = numerical_flux(beta_n, sol[point], g[point]);
       for (unsigned int i=0; i<fe_v.dofs_per_cell; ++i)
@@ -736,28 +734,28 @@ void Step12<dim>::integrate_face_term (DoFInfo& dinfo1, DoFInfo& dinfo2,
 {
    const FEValuesBase<dim>& fe_v          = info1.fe_values();
    const FEValuesBase<dim>& fe_v_neighbor = info2.fe_values();
-   
+
    const std::vector<double>& sol1 = info1.values[0][0];
    const std::vector<double>& sol2 = info2.values[0][0];
-   
+
    Vector<double>& local_vector1 = dinfo1.vector(0).block(0);
    Vector<double>& local_vector2 = dinfo2.vector(0).block(0);
-   
+
    const std::vector<double>& JxW = fe_v.get_JxW_values ();
    const std::vector<Tensor<1,dim> >& normals = fe_v.get_normal_vectors ();
-   
+
    for (unsigned int point=0; point<fe_v.n_quadrature_points; ++point)
    {
       Point<dim> beta;
       advection_speed(fe_v.quadrature_point(point), beta);
-      
+
       const double beta_n = beta * normals[point];
       const double flux = numerical_flux(beta_n, sol1[point], sol2[point]);
          for (unsigned int i=0; i<fe_v.dofs_per_cell; ++i)
             local_vector1(i) -= flux *
                                 fe_v.shape_value(i,point) *
                                 JxW[point];
-         
+
          for (unsigned int k=0; k<fe_v_neighbor.dofs_per_cell; ++k)
             local_vector2(k) += flux *
                                 fe_v_neighbor.shape_value(k,point) *
@@ -771,7 +769,7 @@ template <int dim>
 void Step12<dim>::compute_shock_indicator ()
 {
    TimerOutput::Scope t(computing_timer, "Shock Indicator");
-   
+
    QGauss<dim-1> quadrature(fe.degree + 1);
    FEFaceValues<dim> fe_face_values (fe, quadrature,
                                      update_values | update_normal_vectors);
@@ -781,33 +779,33 @@ void Step12<dim>::compute_shock_indicator ()
                                            update_values | update_normal_vectors);
    FESubfaceValues<dim> fe_subface_values_nbr (fe, quadrature,
                                                update_values);
-   
+
    QGauss<dim> q_cell (fe.degree + 1);
    FEValues<dim> fe_values (fe, q_cell, update_values);
    std::vector<double> sol_values(q_cell.size());
-   
+
    unsigned int n_q_points = quadrature.size();
    std::vector<double> face_values(n_q_points), face_values_nbr(n_q_points);
 
    typename DoFHandler<dim>::active_cell_iterator
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
-   
+
    jump_ind_min = 1.0e20;
    jump_ind_max = 0.0;
    jump_ind_avg = 0.0;
-   
+
    for(unsigned int c=0; cell != endc; ++cell, ++c)
    if(cell->is_locally_owned())
    {
       double& cell_shock_ind = shock_indicator (c);
       double& cell_jump_ind = jump_indicator (c);
       double inflow_measure = 0;
-      
+
       // advection speed at cell center
       Point<dim> beta;
       advection_speed(cell->center(), beta);
-      
+
       for (unsigned int f=0; f<GeometryInfo<dim>::faces_per_cell; ++f)
          if (cell->at_boundary(f) == false)
          {
@@ -828,7 +826,7 @@ void Step12<dim>::compute_shock_indicator ()
                                    fe_face_values.JxW(q);
                   inflow_measure += inflow_status * fe_face_values.JxW(q);
                }
-               
+
             }
             else if ((cell->neighbor(f)->level() == cell->level()) &&
                      (cell->neighbor(f)->has_children() == true))
@@ -878,14 +876,14 @@ void Step12<dim>::compute_shock_indicator ()
             // We dont do anything here since we assume solution is constant near
             // boundary.
          }
-      
+
       // normalized shock indicator
       fe_values.reinit (cell);
       fe_values.get_function_values (solution, sol_values);
       double cell_norm = 0;
       for(unsigned int q=0; q<q_cell.size(); ++q)
          cell_norm = std::max(cell_norm, std::fabs(sol_values[q]));
-      
+
       double denominator = std::pow(cell->diameter(), 0.5*(fe.degree+1)) *
                            inflow_measure *
                            cell_norm;
@@ -896,14 +894,14 @@ void Step12<dim>::compute_shock_indicator ()
       }
       else
          cell_shock_ind = 0;
-      
+
       dx = cell->diameter() / std::sqrt(2.0);
       cell_jump_ind = std::sqrt( cell_jump_ind / (4.0*dx) ) * cell->diameter();
       jump_ind_min = std::min(jump_ind_min, cell_jump_ind);
       jump_ind_max = std::max(jump_ind_max, cell_jump_ind);
       jump_ind_avg += cell_jump_ind;
    }
-   
+
    jump_ind_avg = Utilities::MPI::sum (jump_ind_avg, mpi_communicator);
    jump_ind_avg /= triangulation.n_global_active_cells();
 }
@@ -916,7 +914,7 @@ void Step12<dim>::apply_limiter_TVD ()
    TimerOutput::Scope t(computing_timer, "limiter");
 
    if(fe.degree == 0) return;
-   
+
    static const double sqrt_3 = std::sqrt(3.0);
 
    std::vector<unsigned int> dof_indices     (fe.dofs_per_cell);
@@ -929,13 +927,13 @@ void Step12<dim>::apply_limiter_TVD ()
    double db, df, Dx, Dy, Dx_new, Dy_new;
 
    right_hand_side = solution;
-   
+
    for(unsigned int c=0; cell != endc; ++c, ++cell)
    if(cell->is_locally_owned())
    {
       // mesh width: we assume cartesian mesh
       dx = cell->diameter() / std::sqrt(2.0);
-      
+
       cell->get_dof_indices (dof_indices);
 
       df = db = 0;
@@ -987,7 +985,7 @@ void Step12<dim>::apply_limiter_TVD ()
          right_hand_side(dof_indices[fe.degree+1]) = Dy_new;
       }
    }
-   
+
    right_hand_side.compress(VectorOperation::insert);
    solution = right_hand_side;
 }
@@ -1016,7 +1014,7 @@ void Step12<dim>::compute_min_max ()
 
    sol_min =  1.0e20; sol_max = -1.0e20;
    h_min   =  1.0e20; h_max   = -1.0e20;
-   
+
    for(; cell != endc; ++cell)
    if(cell->is_locally_owned())
    {
@@ -1027,14 +1025,14 @@ void Step12<dim>::compute_min_max ()
       h_min = std::min(h_min, cell->diameter()/std::sqrt(2));
       h_max = std::max(h_max, cell->diameter()/std::sqrt(2));
    }
-   
+
    const double local_min[2] = {-sol_min, -h_min};
    const double local_max[2] = { sol_max,  h_max};
 
    double global_min[2], global_max[2];
    Utilities::MPI::max (local_min, mpi_communicator, global_min);
    Utilities::MPI::max (local_max, mpi_communicator, global_max);
-   
+
    sol_min = -global_min[0]; h_min = -global_min[1];
    sol_max =  global_max[0]; h_max =  global_max[1];
 
@@ -1049,7 +1047,7 @@ void Step12<dim>::solve ()
    RHSIntegrator<dim> rhs_integrator (dof_handler);
    setup_mesh_worker (rhs_integrator);
    compute_dt ();
-   
+
    pcout << "Solving by RK ...\n";
 
    double final_time = 2.0*M_PI;
@@ -1059,7 +1057,7 @@ void Step12<dim>::solve ()
    {
       // We want to reach final_time exactly
       if(time + dt > final_time) dt = final_time - time;
-      
+
       solution_old = solution;
 
       // 3-stage RK scheme
@@ -1068,7 +1066,7 @@ void Step12<dim>::solve ()
          assemble_rhs (rhs_integrator);
          {
             TimerOutput::Scope t(computing_timer, "update");
-            
+
             // right_hand_side = dt*right_hand_side + solution
             right_hand_side.sadd (dt, solution);
             // right_hand_side = b_rk*right_hand_side + a_rk*solution_old
@@ -1078,7 +1076,7 @@ void Step12<dim>::solve ()
          apply_limiter ();
       }
       compute_min_max();
-      
+
       ++iter; time += dt;
 
       if(std::fmod(iter,10)==0)
@@ -1087,7 +1085,7 @@ void Step12<dim>::solve ()
          refine_grid ();
          compute_dt ();
       }
-      
+
       pcout << "It=" << iter
             << ", t= " << time
             << ", min,max u= " << sol_min << "  " << sol_max
@@ -1095,7 +1093,7 @@ void Step12<dim>::solve ()
       if(std::fmod(iter,100)==0 || std::fabs(time-final_time) < 1.0e-14)
          output_results(time);
    }
-   
+
 }
 
 //------------------------------------------------------------------------------
@@ -1105,7 +1103,7 @@ template <int dim>
 void Step12<dim>::refine_grid_initial ()
 {
    pcout << "Refining grid ...\n";
-   
+
    //double threshold = 0.5*(jump_ind_min + jump_ind_max);
    double threshold = jump_ind_avg;
    pcout << "Threshold = " << threshold << std::endl;
@@ -1115,7 +1113,7 @@ void Step12<dim>::refine_grid_initial ()
        jump_indicator,
        0.1,
        0.0);
-   
+
    unsigned int min_grid_level = 0;
    unsigned int max_grid_level = 5;
    if (triangulation.n_levels() > max_grid_level)
@@ -1124,18 +1122,18 @@ void Step12<dim>::refine_grid_initial ()
            cell != triangulation.end(); ++cell)
          if(cell->is_locally_owned())
          cell->clear_refine_flag ();
-   
+
    for (typename Triangulation<dim>::active_cell_iterator
         cell = triangulation.begin_active(min_grid_level);
         cell != triangulation.end_active(min_grid_level); ++cell)
       if(cell->is_locally_owned())
       cell->clear_coarsen_flag ();
-   
+
    triangulation.prepare_coarsening_and_refinement();
    triangulation.execute_coarsening_and_refinement();
-   
+
    setup_system ();
-   
+
    // We dont interpolate solution since we set initial condition on new mesh
 }
 
@@ -1147,23 +1145,23 @@ void Step12<dim>::refine_grid ()
 {
    pcout << "Refining grid ...\n";
    Vector<float> gradient_indicator (triangulation.n_active_cells());
-   
+
    DerivativeApproximation::approximate_gradient (mapping,
                                                   dof_handler,
                                                   solution,
                                                   gradient_indicator);
-   
+
    typename DoFHandler<dim>::active_cell_iterator
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
    for (unsigned int cell_no=0; cell!=endc; ++cell, ++cell_no)
       gradient_indicator(cell_no) *= std::pow(cell->diameter(), 1.0+0.5*dim);
-   
+
    parallel::distributed::SolutionTransfer<dim,LA::MPI::Vector> soltrans(dof_handler);
    parallel::distributed::GridRefinement::refine_and_coarsen_fixed_fraction (triangulation,
                                                                              gradient_indicator,
                                                                              0.5, 0.1);
-   
+
    unsigned int min_grid_level = 0;
    unsigned int max_grid_level = 5;
    if (triangulation.n_levels() > max_grid_level)
@@ -1172,24 +1170,24 @@ void Step12<dim>::refine_grid ()
             cell != triangulation.end(); ++cell)
          if(cell->is_locally_owned())
             cell->clear_refine_flag ();
-   
+
    for (typename Triangulation<dim>::active_cell_iterator
         cell = triangulation.begin_active(min_grid_level);
         cell != triangulation.end_active(min_grid_level); ++cell)
       if(cell->is_locally_owned())
          cell->clear_coarsen_flag ();
-   
+
    // store solution on current mesh
    //LA::MPI::Vector previous_solution;
    //Vector<double> previous_solution;
    //previous_solution = solution;
-   
+
    triangulation.prepare_coarsening_and_refinement();
    soltrans.prepare_for_coarsening_and_refinement(solution);
    triangulation.execute_coarsening_and_refinement ();
-   
+
    setup_system ();
-   
+
    // interpolate solution to new mesh
    LA::MPI::Vector distributed_solution(locally_owned_dofs, mpi_communicator);
    soltrans.interpolate(distributed_solution);
@@ -1206,31 +1204,31 @@ void Step12<dim>::output_results (double time)
 
    static unsigned int cycle = 0;
    static std::vector< std::vector<std::string> > all_files;
-   
+
    {
       // Output of the polynomial solution
       DataOut<dim> data_out;
       data_out.attach_dof_handler (dof_handler);
       data_out.add_data_vector (solution, "u");
-      
+
       Vector<float> subdomain (triangulation.n_active_cells());
       for (unsigned int i=0; i<subdomain.size();++i)
          subdomain(i) = triangulation.locally_owned_subdomain();
       data_out.add_data_vector(subdomain, "subdomain");
-      
+
       data_out.build_patches(fe.degree);
-      
+
       std::string filename = ("sol-" +
                               Utilities::int_to_string(cycle,4) +
                               "." +
                               Utilities::int_to_string
                               (triangulation.locally_owned_subdomain(),2));
       std::ofstream outfile ((filename + ".vtu").c_str());
-      
+
       DataOutBase::VtkFlags flags(time, cycle);
       data_out.set_flags(flags);
       data_out.write_vtu (outfile);
-      
+
       if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)
       {
          std::vector<std::string> filenames;
@@ -1247,7 +1245,7 @@ void Step12<dim>::output_results (double time)
          DataOutBase::write_visit_record(visit_output, all_files);
       }
    }
-   
+
    ++cycle;
 }
 
@@ -1260,7 +1258,7 @@ void Step12<dim>::run ()
    GridGenerator::subdivided_hyper_cube (triangulation,20,-1.0,+1.0);
    setup_system ();
    set_initial_condition ();
-   
+
    // Initial refinements
    unsigned int n_refine_init = 5;
    for(unsigned int i=0; i<n_refine_init; ++i)
@@ -1270,12 +1268,12 @@ void Step12<dim>::run ()
       set_initial_condition();
    }
    output_results(0);
-   
+
    solve ();
-   
+
    computing_timer.print_summary ();
    computing_timer.reset ();
-   
+
    pcout << std::endl;
 }
 
@@ -1319,7 +1317,7 @@ int main (int argc, char *argv[])
                 << std::endl;
       return 1;
    };
-   
+
    return 0;
 }
 
