@@ -68,12 +68,12 @@ int main()
     data_out.attach_dof_handler(dhq);
     std::vector<std::string> names{"dx","dy"};
     data_out.add_data_vector(eulerq, names);
-    typename DataOut<dim>::CurvedCellRegion curved_region = DataOut<dim>::curved_inner_cells;
-    data_out.build_patches(map, degree, curved_region);
-
     DataOutBase::VtkFlags flags;
     flags.write_higher_order_cells = true;
     data_out.set_flags(flags);
+    typename DataOut<dim>::CurvedCellRegion curved_region = DataOut<dim>::curved_inner_cells;
+    data_out.build_patches(map, degree, curved_region);
+
     std::ofstream out("grid.vtu");
     data_out.write_vtu(out);
     std::cout << "Wrote grid.vtu  ==> open in paraview\n";
