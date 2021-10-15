@@ -10,6 +10,4 @@ paraview grid.vtu
 
 which should look like this
 
-<p align="center">
-<img width="45%" src="grid.png">
-</p>
+![grid](grid.png)
