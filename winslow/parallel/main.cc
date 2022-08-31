@@ -52,7 +52,7 @@ int main (int argc, char *argv[])
       else if(test_case==1)
       {
          GridGenerator::hyper_shell (triangulation, Point<2>(0.0,0.0), 0.5, 1.0);
-         n_refine = 2;
+         n_refine = 1;
       }
       else if(test_case==2)
       {
