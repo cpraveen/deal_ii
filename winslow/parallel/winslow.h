@@ -12,7 +12,7 @@
 #include <deal.II/lac/trilinos_vector.h>
 #include <deal.II/lac/trilinos_sparse_matrix.h>
 #include <deal.II/lac/trilinos_solver.h>
-#include <deal.II/lac/constraint_matrix.h>
+#include <deal.II/lac/affine_constraints.h>
 
 #include <deal.II/fe/fe_q.h>
 
@@ -26,7 +26,7 @@ namespace Winslow
 {
    inline
    void add_dirichlet_constraints (const std::map<types::global_dof_index,double> &values,
-                                   ConstraintMatrix                               &constraints)
+                                   AffineConstraints<double>                      &constraints)
    {
       for (const auto &pair : values)
       {
@@ -125,9 +125,9 @@ namespace Winslow
       TrilinosWrappers::MPI::Vector     x_old, y_old;
       TrilinosWrappers::MPI::Vector     ax, ay;
       
-      ConstraintMatrix                  constraints;
-      ConstraintMatrix                  constraints_x;
-      ConstraintMatrix                  constraints_y;
+      AffineConstraints<double>         constraints;
+      AffineConstraints<double>         constraints_x;
+      AffineConstraints<double>         constraints_y;
 
       TrilinosWrappers::SparseMatrix    mass_matrix;
       TrilinosWrappers::SparseMatrix    system_matrix_x;

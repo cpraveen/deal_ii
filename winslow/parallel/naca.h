@@ -2,7 +2,6 @@
 #define __NACA_H__
 
 #include <deal.II/grid/tria.h>
-#include <deal.II/grid/tria_boundary_lib.h>
 #include <deal.II/grid/manifold.h>
 
 #include <Sacado.hpp>
@@ -45,7 +44,7 @@ private:
 public:
    virtual std::unique_ptr<Manifold<2,2>> clone() const override
    {
-      return std_cxx14::make_unique<NACA0012>();
+      return std::make_unique<NACA0012>();
    }
 
    virtual Point<2> project_to_manifold (const ArrayView<const Point<2>> &surrounding_points,
