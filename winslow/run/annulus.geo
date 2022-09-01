@@ -49,7 +49,7 @@ Plane Surface(4) = {4};
 Transfinite Surface(4) = {5,9,6,2};
 
 Transfinite Line{1,2,3,4,5,6,7,8} = 5;
-Transfinite Line{9,10,11,12} = 20 Using Progression 0.1;
+Transfinite Line{9,10,11,12} = 20 Using Bump 0.05;
 
 Physical Surface(100) = {1,2,3,4};
 Physical Line(1) = {1,2,3,4,5,6,7,8};

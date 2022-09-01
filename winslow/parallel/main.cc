@@ -84,6 +84,7 @@ int main (int argc, char *argv[])
       }
       else if(test_case==3)
       {
+         triangulation.set_all_manifold_ids_on_boundary(0);
          NACA::set_curved_boundaries (triangulation);
          n_refine = 0;
       }
