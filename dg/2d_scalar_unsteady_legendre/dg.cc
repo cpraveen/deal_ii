@@ -200,7 +200,7 @@ public:
 
 // Computes boundary condition value at a list of boundary points
 template <int dim>
-void BoundaryValues<dim>::value_list(const std::vector<Point<dim> > &points,
+void BoundaryValues<dim>::value_list(const std::vector<Point<dim>>& /*points*/,
                                      std::vector<double> &values,
                                      const unsigned int) const
 {
@@ -280,7 +280,7 @@ class Step12
       FE_DGP<dim>          fe_cell;
       DoFHandler<dim>      dof_handler_cell;
    
-      std::vector< Vector<double> > inv_mass_matrix;
+      std::vector<Vector<double>> inv_mass_matrix;
       
       Vector<double>       solution;
       Vector<double>       solution_old;
@@ -362,7 +362,6 @@ void Step12<dim>::setup_system ()
    bcell.resize(triangulation.n_cells());
    tcell.resize(triangulation.n_cells());
    
-   const double EPS = 1.0e-10;
    typename DoFHandler<dim>::active_cell_iterator
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
@@ -515,7 +514,7 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
 
    MeshWorker::IntegrationInfoBox<dim>& info_box = rhs_integrator.info_box;
    MeshWorker::DoFInfo<dim>& dof_info = rhs_integrator.dof_info;
-   MeshWorker::Assembler::ResidualSimple< Vector<double> >&
+   MeshWorker::Assembler::ResidualSimple<Vector<double>>&
       assembler = rhs_integrator.assembler;
 
    const unsigned int n_gauss_points = fe.degree+1;
@@ -525,7 +524,7 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
 
    // Add solution vector to info_box
    AnyData solution_data;
-   solution_data.add< Vector<double>* >(&solution, "solution");
+   solution_data.add<Vector<double>*>(&solution, "solution");
    info_box.cell_selector.add     ("solution", true, false, false);
    info_box.boundary_selector.add ("solution", true, false, false);
    info_box.face_selector.add     ("solution", true, false, false);
@@ -540,7 +539,7 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
    
    // Attach rhs vector to assembler
    AnyData rhs;
-   rhs.add< Vector<double>* > (&right_hand_side, "RHS");
+   rhs.add<Vector<double>*> (&right_hand_side, "RHS");
    assembler.initialize (rhs);
 }
 
@@ -580,7 +579,7 @@ void Step12<dim>::assemble_rhs (RHSIntegrator<dim>& rhs_integrator)
    right_hand_side = 0.0;
 
    MeshWorker::loop<dim, dim, MeshWorker::DoFInfo<dim>,
-                    MeshWorker::IntegrationInfoBox<dim> >
+                    MeshWorker::IntegrationInfoBox<dim>>
       (dof_handler.begin_active(),
        dof_handler.end(),
        rhs_integrator.dof_info, 
@@ -1245,12 +1244,12 @@ int main ()
       test_case = circ; xmin = -1.0; xmax = 1.0; final_time = 2.0*M_PI;
       test_case = shear1; xmin = 0.0; xmax = 1.0; final_time = 5.0;
 
-      unsigned int degree = 1;
-      LimiterType limiter_type = none;
-      unsigned int n_points = 100;
-      unsigned int n_refine_init = 0; // number of initial refinement steps
-      unsigned int n_refine_interval = 0;
-      Mlim = 0.0; // TVD parameter, global variable
+      unsigned int degree = 1;            // polynomial degree
+      LimiterType limiter_type = none;    // none, tvd
+      unsigned int n_points = 100;        // Grid = n_points x n_points
+      unsigned int n_refine_init = 0;     // no. of initial refinement steps
+      unsigned int n_refine_interval = 0; // how often to refine
+      Mlim = 0.0;                         // TVD parameter, global variable
       Step12<2> dgmethod(degree,
                          limiter_type,
                          n_points,
@@ -1284,5 +1283,3 @@ int main ()
    
    return 0;
 }
-
-
