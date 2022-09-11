@@ -200,7 +200,7 @@ public:
 
 // Computes boundary condition value at a list of boundary points
 template <int dim>
-void BoundaryValues<dim>::value_list(const std::vector<Point<dim>>& /*points*/,
+void BoundaryValues<dim>::value_list(const std::vector<Point<dim>>& points,
                                      std::vector<double> &values,
                                      const unsigned int) const
 {
