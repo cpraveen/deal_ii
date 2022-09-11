@@ -1053,7 +1053,7 @@ void Step12<dim>::solve ()
    double final_time = 2.0*M_PI;
    unsigned int iter = 0;
    double time = 0;
-   while (time < final_time && iter < 10)
+   while (time < final_time)
    {
       // We want to reach final_time exactly
       if(time + dt > final_time) dt = final_time - time;
@@ -1079,15 +1079,16 @@ void Step12<dim>::solve ()
 
       ++iter; time += dt;
 
-      if(std::fmod(iter,10)==0)
+      /*if(std::fmod(iter,10)==0)
       {
          compute_shock_indicator ();
          refine_grid ();
          compute_dt ();
-      }
+      }*/
 
       pcout << "It=" << iter
             << ", t= " << time
+            << ", dt= " << dt
             << ", min,max u= " << sol_min << "  " << sol_max
             << ", min,max h=" << h_min << " " << h_max << std::endl;
       if(std::fmod(iter,100)==0 || std::fabs(time-final_time) < 1.0e-14)
@@ -1246,6 +1247,8 @@ void Step12<dim>::output_results (double time)
       }
    }
 
+   pcout << "Wrote solution at time,cycle = " << time << " " << cycle << std::endl;
+
    ++cycle;
 }
 
@@ -1255,12 +1258,12 @@ void Step12<dim>::output_results (double time)
 template <int dim>
 void Step12<dim>::run ()
 {
-   GridGenerator::subdivided_hyper_cube (triangulation,20,-1.0,+1.0);
+   GridGenerator::subdivided_hyper_cube (triangulation,100,-1.0,+1.0);
    setup_system ();
    set_initial_condition ();
 
    // Initial refinements
-   unsigned int n_refine_init = 5;
+   unsigned int n_refine_init = 0;
    for(unsigned int i=0; i<n_refine_init; ++i)
    {
       compute_shock_indicator ();
@@ -1320,5 +1323,3 @@ int main (int argc, char *argv[])
 
    return 0;
 }
-
-
