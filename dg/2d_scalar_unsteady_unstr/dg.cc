@@ -719,7 +719,7 @@ void Step12<dim>::output_results (double time)
    TimerOutput::Scope t(computing_timer, "output");
 
    static unsigned int cycle = 0;
-   static std::vector< std::vector<std::string> > all_files;
+   static std::vector<std::vector<std::string>> all_files;
 
    {
       // Output of the polynomial solution
@@ -734,21 +734,13 @@ void Step12<dim>::output_results (double time)
 
       data_out.build_patches(mapping, fe.degree);
 
-      std::string filename = ("sol-" +
-                              Utilities::int_to_string(cycle,4) +
-                              "." +
-                              Utilities::int_to_string
-                              (triangulation.locally_owned_subdomain(),2));
-      std::ofstream outfile ((filename + ".vtu").c_str());
-
       DataOutBase::VtkFlags flags;
       flags.time = time;
       flags.cycle = cycle;
       flags.write_higher_order_cells = false;
       data_out.set_flags(flags);
-      data_out.write_vtu (outfile);
-      //data_out.write_vtu_with_pvtu_record("./", "sol", cycle,
-      //                                    MPI_COMM_WORLD, 3);
+      data_out.write_vtu_with_pvtu_record("./", "sol", cycle,
+                                          MPI_COMM_WORLD, 4);
 
       if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)
       {
@@ -756,15 +748,23 @@ void Step12<dim>::output_results (double time)
          for (unsigned int i=0;
               i<Utilities::MPI::n_mpi_processes(mpi_communicator);
               ++i)
-            filenames.push_back ("sol-" +
+            filenames.push_back ("sol_" +
                                  Utilities::int_to_string (cycle, 4) +
                                  "." +
-                                 Utilities::int_to_string (i, 2) +
+                                 Utilities::int_to_string (i) +
                                  ".vtu");
          all_files.push_back (filenames);
-         std::ofstream visit_output ("master_file.visit");
+         std::ofstream visit_output ("solution.visit");
          DataOutBase::write_visit_record(visit_output, all_files);
       }
+
+      static std::vector<std::pair<double, std::string>> pvtu_files;
+      std::string pvtu_filename = "sol_" +
+                                  Utilities::int_to_string(cycle, 4) +
+                                  ".pvtu";
+      pvtu_files.emplace_back(time, pvtu_filename);
+      std::ofstream pvd_file("solution.pvd");
+      DataOutBase::write_pvd_record(pvd_file, pvtu_files);
    }
 
    pcout << "Wrote solution at time,cycle = " << time << " " << cycle << std::endl;
