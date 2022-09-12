@@ -741,9 +741,14 @@ void Step12<dim>::output_results (double time)
                               (triangulation.locally_owned_subdomain(),2));
       std::ofstream outfile ((filename + ".vtu").c_str());
 
-      DataOutBase::VtkFlags flags(time, cycle);
+      DataOutBase::VtkFlags flags;
+      flags.time = time;
+      flags.cycle = cycle;
+      flags.write_higher_order_cells = false;
       data_out.set_flags(flags);
       data_out.write_vtu (outfile);
+      //data_out.write_vtu_with_pvtu_record("./", "sol", cycle,
+      //                                    MPI_COMM_WORLD, 3);
 
       if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)
       {
