@@ -54,12 +54,12 @@ namespace LA
 #endif
 }
 
-using namespace dealii;
-
 const double a_rk[] = {0.0, 3.0/4.0, 1.0/3.0};
 const double b_rk[] = {1.0, 1.0/4.0, 2.0/3.0};
 
 enum TestCase {expo, square, circ};
+
+using namespace dealii;
 
 //------------------------------------------------------------------------------
 // Speed of advection
@@ -91,7 +91,7 @@ public:
    :
    test_case (test_case)
    {};
-   virtual void value_list (const std::vector<Point<dim> > &points,
+   virtual void value_list (const std::vector<Point<dim>> &points,
                             std::vector<double> &values,
                             const unsigned int component=0) const;
 private:
@@ -100,7 +100,7 @@ private:
 
 // Computes boundary condition value at a list of boundary points
 template <int dim>
-void InitialCondition<dim>::value_list(const std::vector<Point<dim> > &points,
+void InitialCondition<dim>::value_list(const std::vector<Point<dim>> &points,
                                      std::vector<double> &values,
                                      const unsigned int) const
 {
@@ -147,14 +147,14 @@ class BoundaryValues: public Function<dim>
 {
   public:
     BoundaryValues () {};
-    virtual void value_list (const std::vector<Point<dim> > &points,
+    virtual void value_list (const std::vector<Point<dim>> &points,
 			                    std::vector<double> &values,
 			                    const unsigned int component=0) const;
 };
 
 // Computes boundary condition value at a list of boundary points
 template <int dim>
-void BoundaryValues<dim>::value_list(const std::vector<Point<dim> > &points,
+void BoundaryValues<dim>::value_list(const std::vector<Point<dim>> &points,
 				       std::vector<double> &values,
 				       const unsigned int) const
 {
@@ -179,7 +179,7 @@ class RHSIntegrator
 
       MeshWorker::IntegrationInfoBox<dim> info_box;
       MeshWorker::DoFInfo<dim> dof_info;
-      MeshWorker::Assembler::ResidualSimple< LA::MPI::Vector >//< Vector<double> >
+      MeshWorker::Assembler::ResidualSimple<LA::MPI::Vector>//< Vector<double> >
          assembler;
 };
 
@@ -422,7 +422,7 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
 
    MeshWorker::IntegrationInfoBox<dim>& info_box = rhs_integrator.info_box;
    //MeshWorker::DoFInfo<dim>& dof_info = rhs_integrator.dof_info;
-   MeshWorker::Assembler::ResidualSimple< LA::MPI::Vector >&
+   MeshWorker::Assembler::ResidualSimple<LA::MPI::Vector>&
       assembler = rhs_integrator.assembler;
 
    const unsigned int n_gauss_points = fe.degree+1;
@@ -499,7 +499,7 @@ void Step12<dim>::assemble_rhs (RHSIntegrator<dim>& rhs_integrator)
    CellFilter;
 
    MeshWorker::loop<dim, dim, MeshWorker::DoFInfo<dim>,
-                    MeshWorker::IntegrationInfoBox<dim> >
+                    MeshWorker::IntegrationInfoBox<dim>>
       (CellFilter (IteratorFilters::LocallyOwnedCell(),dof_handler.begin_active()),
        CellFilter (IteratorFilters::LocallyOwnedCell(),dof_handler.end()),
        rhs_integrator.dof_info,
@@ -566,7 +566,7 @@ void Step12<dim>::integrate_boundary_term (DoFInfo& dinfo, CellInfo& info)
    Vector<double>& local_vector = dinfo.vector(0).block(0);
 
    const std::vector<double>& JxW = fe_v.get_JxW_values ();
-   const std::vector<Tensor<1,dim> >& normals = fe_v.get_normal_vectors ();
+   const std::vector<Tensor<1,dim>>& normals = fe_v.get_normal_vectors ();
 
    std::vector<double> g(fe_v.n_quadrature_points);
 
@@ -604,7 +604,7 @@ void Step12<dim>::integrate_face_term (DoFInfo& dinfo1, DoFInfo& dinfo2,
    Vector<double>& local_vector2 = dinfo2.vector(0).block(0);
 
    const std::vector<double>& JxW = fe_v.get_JxW_values ();
-   const std::vector<Tensor<1,dim> >& normals = fe_v.get_normal_vectors ();
+   const std::vector<Tensor<1,dim>>& normals = fe_v.get_normal_vectors ();
 
    for (unsigned int point=0; point<fe_v.n_quadrature_points; ++point)
    {

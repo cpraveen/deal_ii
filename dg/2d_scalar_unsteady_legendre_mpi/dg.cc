@@ -67,16 +67,19 @@
 #include <cmath>
 
 #define sign(a)  ( (a) > 0 ? 1 : -1 )
-//#define USE_PETSC_LA
 
-using namespace dealii;
+// #define FORCE_USE_OF_TRILINOS
 
+// Use petsc by default, to use trilinos uncomment above line
 namespace LA
 {
-#ifdef USE_PETSC_LA
-   using namespace ::PETScWrappers;
+#if defined(DEAL_II_WITH_PETSC) && !defined(DEAL_II_PETSC_WITH_COMPLEX) && \
+    !(defined(DEAL_II_WITH_TRILINOS) && defined(FORCE_USE_OF_TRILINOS))
+   using namespace dealii::LinearAlgebraPETSc;
+#elif defined(DEAL_II_WITH_TRILINOS)
+   using namespace dealii::LinearAlgebraTrilinos;
 #else
-   using namespace ::TrilinosWrappers;
+#error DEAL_II_WITH_PETSC or DEAL_II_WITH_TRILINOS required
 #endif
 }
 
@@ -87,6 +90,8 @@ double dx;
 
 enum LimiterType {none, tvd};
 enum TestCase {expo, square, circ};
+
+using namespace dealii;
 
 //------------------------------------------------------------------------------
 // Minmod function
@@ -137,7 +142,7 @@ public:
    :
    test_case (test_case)
    {};
-   virtual void value_list (const std::vector<Point<dim> > &points,
+   virtual void value_list (const std::vector<Point<dim>> &points,
                             std::vector<double> &values,
                             const unsigned int component=0) const;
 private:
@@ -146,7 +151,7 @@ private:
 
 // Computes boundary condition value at a list of boundary points
 template <int dim>
-void InitialCondition<dim>::value_list(const std::vector<Point<dim> > &points,
+void InitialCondition<dim>::value_list(const std::vector<Point<dim>> &points,
                                      std::vector<double> &values,
                                      const unsigned int) const
 {
@@ -193,14 +198,14 @@ class BoundaryValues: public Function<dim>
 {
   public:
     BoundaryValues () {};
-    virtual void value_list (const std::vector<Point<dim> > &points,
+    virtual void value_list (const std::vector<Point<dim>> &points,
 			                    std::vector<double> &values,
 			                    const unsigned int component=0) const;
 };
 
 // Computes boundary condition value at a list of boundary points
 template <int dim>
-void BoundaryValues<dim>::value_list(const std::vector<Point<dim> > &points,
+void BoundaryValues<dim>::value_list(const std::vector<Point<dim>> &points,
 				       std::vector<double> &values,
 				       const unsigned int) const
 {
@@ -225,7 +230,7 @@ class RHSIntegrator
 
       MeshWorker::IntegrationInfoBox<dim> info_box;
       MeshWorker::DoFInfo<dim> dof_info;
-      MeshWorker::Assembler::ResidualSimple< LA::MPI::Vector >//< Vector<double> >
+      MeshWorker::Assembler::ResidualSimple<LA::MPI::Vector>//< Vector<double> >
          assembler;
 };
 
@@ -435,7 +440,7 @@ double Step12<dim>::compute_cell_average(const typename DoFHandler<dim>::cell_it
    }
    else
    {  // compute average solution on child cells
-      auto child_cells = GridTools::get_active_child_cells< DoFHandler<dim> > (cell);
+      auto child_cells = GridTools::get_active_child_cells<DoFHandler<dim>> (cell);
       double avg = 0, measure = 0;
       for(unsigned int i=0; i<child_cells.size(); ++i)
       if(!child_cells[i]->is_artificial())
@@ -518,14 +523,13 @@ void Step12<dim>::set_initial_condition ()
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
    std::vector<double> initial_values (n_q_points);
-   Vector<double> cell_vector(dofs_per_cell);
+   std::vector<double> cell_vector(dofs_per_cell);
    InitialCondition<dim> initial_condition(test_case);
 
    typename DoFHandler<dim>::active_cell_iterator
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
 
-   right_hand_side = 0;
    for (; cell!=endc; ++cell)
    if(cell->is_locally_owned())
    {
@@ -533,19 +537,19 @@ void Step12<dim>::set_initial_condition ()
       fe_values.reinit (cell);
       initial_condition.value_list (fe_values.get_quadrature_points(),
                                     initial_values);
-      cell_vector = 0;
       for(unsigned int i=0; i<dofs_per_cell; ++i)
       {
+         cell_vector[i] = 0;
          for(unsigned int q=0; q<n_q_points; ++q)
-            cell_vector(i) += initial_values[q] *
+            cell_vector[i] += initial_values[q] *
                               fe_values.shape_value(i,q) *
                               fe_values.JxW(q);
-         cell_vector(i) /= mass_matrix(local_dof_indices[i]);
+         cell_vector[i] /= mass_matrix(local_dof_indices[i]);
       }
 
-      right_hand_side.add(local_dof_indices, cell_vector);
+      right_hand_side.set(local_dof_indices, cell_vector);
    }
-   right_hand_side.compress(VectorOperation::add);
+   right_hand_side.compress(VectorOperation::insert);
    solution = right_hand_side;
    apply_limiter ();
    pcout << " Done\n";
@@ -560,7 +564,7 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
 
    MeshWorker::IntegrationInfoBox<dim>& info_box = rhs_integrator.info_box;
    //MeshWorker::DoFInfo<dim>& dof_info = rhs_integrator.dof_info;
-   MeshWorker::Assembler::ResidualSimple< LA::MPI::Vector >&
+   MeshWorker::Assembler::ResidualSimple<LA::MPI::Vector>&
       assembler = rhs_integrator.assembler;
 
    const unsigned int n_gauss_points = fe.degree+1;
@@ -637,7 +641,7 @@ void Step12<dim>::assemble_rhs (RHSIntegrator<dim>& rhs_integrator)
    CellFilter;
 
    MeshWorker::loop<dim, dim, MeshWorker::DoFInfo<dim>,
-                    MeshWorker::IntegrationInfoBox<dim> >
+                    MeshWorker::IntegrationInfoBox<dim>>
       (CellFilter (IteratorFilters::LocallyOwnedCell(),dof_handler.begin_active()),
        CellFilter (IteratorFilters::LocallyOwnedCell(),dof_handler.end()),
        rhs_integrator.dof_info,
@@ -704,7 +708,7 @@ void Step12<dim>::integrate_boundary_term (DoFInfo& dinfo, CellInfo& info)
    Vector<double>& local_vector = dinfo.vector(0).block(0);
 
    const std::vector<double>& JxW = fe_v.get_JxW_values ();
-   const std::vector<Tensor<1,dim> >& normals = fe_v.get_normal_vectors ();
+   const std::vector<Tensor<1,dim>>& normals = fe_v.get_normal_vectors ();
 
    std::vector<double> g(fe_v.n_quadrature_points);
 
@@ -742,7 +746,7 @@ void Step12<dim>::integrate_face_term (DoFInfo& dinfo1, DoFInfo& dinfo2,
    Vector<double>& local_vector2 = dinfo2.vector(0).block(0);
 
    const std::vector<double>& JxW = fe_v.get_JxW_values ();
-   const std::vector<Tensor<1,dim> >& normals = fe_v.get_normal_vectors ();
+   const std::vector<Tensor<1,dim>>& normals = fe_v.get_normal_vectors ();
 
    for (unsigned int point=0; point<fe_v.n_quadrature_points; ++point)
    {
@@ -1204,7 +1208,7 @@ void Step12<dim>::output_results (double time)
    TimerOutput::Scope t(computing_timer, "output");
 
    static unsigned int cycle = 0;
-   static std::vector< std::vector<std::string> > all_files;
+   static std::vector<std::vector<std::string>> all_files;
 
    {
       // Output of the polynomial solution
