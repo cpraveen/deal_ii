@@ -1,23 +1,8 @@
-/* $Id: step-12.cc 22886 2010-11-29 23:48:38Z bangerth $ */
-/* Author: Guido Kanschat, Texas A&M University, 2009 */
-
-/*    $Id: step-12.cc 22886 2010-11-29 23:48:38Z bangerth $       */
-/*                                                                */
-/*    Copyright (C) 2010 by the deal.II authors */
-/*                                                                */
-/*    This file is subject to QPL and may not be  distributed     */
-/*    without copyright and license information. Please refer     */
-/*    to the file deal.II/doc/license.html for the  text  and     */
-/*    further information on this license.                        */
-
-// Modifications by Juan Pablo Gallego and Praveen. C
-// Explicit time-stepping Runge-Kutta DG method
-// Mass matrix on each cell is computed, inverted and the inverse
-// is stored. Then in each time iteration, we need to compute right
-// hand side and multipy by inverse mass mass matrix. After that
-// solution is advanced to new time level by an RK scheme.
-//
-// Works only on square cartesian cells
+/*
+ * Solves 2d linear advection eqn
+ *    u_t + div(a(x)u) = 0
+ * on general quad grids, using QGauss Lagrange basis functions
+ */
 
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/function.h>
@@ -28,25 +13,18 @@
 
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/grid_generator.h>
-#include <deal.II/grid/grid_out.h>
-#include <deal.II/grid/grid_refinement.h>
-#include <deal.II/grid/tria_accessor.h>
-#include <deal.II/grid/tria_iterator.h>
-#include <deal.II/grid/grid_tools.h>
+#include <deal.II/grid/grid_in.h>
+#include <deal.II/grid/manifold_lib.h>
 
 #include <deal.II/fe/mapping_q.h>
 #include <deal.II/fe/fe_values.h>
-#include <deal.II/fe/fe_q.h>
-#include <deal.II/fe/fe_dgp.h>
+#include <deal.II/fe/fe_dgq.h>
 
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/dofs/dof_tools.h>
 
 #include <deal.II/numerics/data_out.h>
-#include <deal.II/numerics/vector_tools.h>
-#include <deal.II/numerics/derivative_approximation.h>
-#include <deal.II/numerics/solution_transfer.h>
 
 #include <deal.II/meshworker/dof_info.h>
 #include <deal.II/meshworker/integration_info.h>
@@ -54,19 +32,13 @@
 #include <deal.II/meshworker/loop.h>
 
 #include <deal.II/lac/generic_linear_algebra.h>
-#include <deal.II/lac/vector.h>
-#include <deal.II/lac/full_matrix.h>
-#include <deal.II/lac/solver_cg.h>
 
 #include <deal.II/distributed/tria.h>
-#include <deal.II/distributed/grid_refinement.h>
-#include <deal.II/distributed/solution_transfer.h>
 
 #include <iostream>
 #include <fstream>
 #include <cmath>
 
-#define sign(a)  ( (a) > 0 ? 1 : -1 )
 //#define USE_PETSC_LA
 
 using namespace dealii;
@@ -228,7 +200,6 @@ private:
    void solve ();
    void compute_min_max ();
    void output_results (double time);
-   double compute_cell_average(const typename DoFHandler<dim>::cell_iterator& cell);
 
    MPI_Comm 					  mpi_communicator;
 
@@ -237,9 +208,8 @@ private:
    const MappingQ<dim>  mapping;
 
    unsigned int         degree;
-   FE_DGQLegendre<dim>  fe;
+   FE_DGQArbitraryNodes<dim>  fe;
    DoFHandler<dim>      dof_handler;
-   FE_DGQ<dim>          fe_cell;
    DoFHandler<dim>      dof_handler_cell;
 
    IndexSet 		      locally_owned_dofs;
@@ -272,7 +242,6 @@ private:
 //------------------------------------------------------------------------------
 template <int dim>
 Step12<dim>::Step12 (unsigned int degree,
-                     LimiterType  limiter_type,
                      TestCase     test_case)
       :
 
@@ -280,9 +249,8 @@ Step12<dim>::Step12 (unsigned int degree,
       triangulation (mpi_communicator),
       mapping (degree),
       degree (degree),
-      fe (degree),
+      fe (QGauss<1>(degree+1)),
       dof_handler (triangulation),
-      fe_cell(0),
       dof_handler_cell (triangulation),
       test_case (test_case),
       pcout (std::cout,
@@ -313,7 +281,6 @@ void Step12<dim>::setup_system ()
    pcout << "Allocating memory ...\n";
 
    dof_handler.distribute_dofs (fe);
-   dof_handler_cell.distribute_dofs (fe_cell);
 
    locally_owned_dofs = dof_handler.locally_owned_dofs ();
    DoFTools::extract_locally_relevant_dofs (dof_handler,
@@ -336,38 +303,11 @@ void Step12<dim>::setup_system ()
          << std::endl;
 
 }
-//------------------------------------------------------------------------------
-// If cell is active, return cell average.
-// If is not active, return area average of child cells.
-//------------------------------------------------------------------------------
-template <int dim>
-double Step12<dim>::compute_cell_average(const typename DoFHandler<dim>::cell_iterator& cell)
-{
-   std::vector<unsigned int> dof_indices(fe.dofs_per_cell);
 
-   if(cell->is_active())
-   {
-      cell->get_dof_indices(dof_indices);
-      return solution(dof_indices[0]);
-   }
-   else
-   {  // compute average solution on child cells
-      auto child_cells = GridTools::get_active_child_cells< DoFHandler<dim> > (cell);
-      double avg = 0, measure = 0;
-      for(unsigned int i=0; i<child_cells.size(); ++i)
-      if(!child_cells[i]->is_artificial())
-      {
-         child_cells[i]->get_dof_indices(dof_indices);
-         avg += solution(dof_indices[0]) * child_cells[i]->measure();
-         measure += child_cells[i]->measure();
-      }
-      avg /= measure;
-      return avg;
-   }
-}
 //------------------------------------------------------------------------------
 // Assemble mass matrix for each cell
-// Invert it and store
+// Basis functions are based on QGauss and we use same rule to compute mass
+// matrix, which makes it diagonal.
 //------------------------------------------------------------------------------
 template <int dim>
 void Step12<dim>::assemble_mass_matrix ()
@@ -378,7 +318,7 @@ void Step12<dim>::assemble_mass_matrix ()
 
    QGauss<dim>  quadrature_formula(fe.degree+1);
 
-   FEValues<dim> fe_values (fe, quadrature_formula,
+   FEValues<dim> fe_values (mapping, fe, quadrature_formula,
                             update_values | update_JxW_values);
 
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
@@ -413,8 +353,9 @@ void Step12<dim>::assemble_mass_matrix ()
    }
    mass_matrix.compress(VectorOperation::add);
 }
+
 //------------------------------------------------------------------------------
-// Project initial condition
+// Project initial condition by L2 projection
 //------------------------------------------------------------------------------
 template <int dim>
 void Step12<dim>::set_initial_condition ()
@@ -426,7 +367,7 @@ void Step12<dim>::set_initial_condition ()
    QGauss<dim> quadrature_formula (fe.degree+1);
    const unsigned int n_q_points = quadrature_formula.size();
 
-   FEValues<dim> fe_values (fe, quadrature_formula,
+   FEValues<dim> fe_values (mapping, fe, quadrature_formula,
                             update_values |
                             update_quadrature_points |
                             update_JxW_values);
@@ -442,7 +383,6 @@ void Step12<dim>::set_initial_condition ()
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
 
-   right_hand_side = 0;
    for (; cell!=endc; ++cell)
    if(cell->is_locally_owned())
    {
@@ -460,12 +400,14 @@ void Step12<dim>::set_initial_condition ()
          cell_vector(i) /= mass_matrix(local_dof_indices[i]);
       }
 
-      right_hand_side.add(local_dof_indices, cell_vector);
+      right_hand_side.set(local_dof_indices, cell_vector);
    }
-   right_hand_side.compress(VectorOperation::add);
+
+   right_hand_side.compress (VectorOperation::insert);
    solution = right_hand_side;
    pcout << " Done\n";
 }
+
 //------------------------------------------------------------------------------
 // Create mesh worker for integration
 //------------------------------------------------------------------------------
@@ -753,7 +695,7 @@ void Step12<dim>::solve ()
             solution = right_hand_side;
          }
       }
-      //compute_min_max();
+      compute_min_max();
 
       ++iter; time += dt;
 
@@ -761,7 +703,7 @@ void Step12<dim>::solve ()
             << ", t= " << time
             << ", dt= " << dt
             << ", min,max u= " << sol_min << "  " << sol_max
-            << ", min,max h=" << h_min << " " << h_max << std::endl;
+            << std::endl;
       if(std::fmod(iter,100)==0 || std::fabs(time-final_time) < 1.0e-14)
          output_results(time);
    }
@@ -790,7 +732,7 @@ void Step12<dim>::output_results (double time)
          subdomain(i) = triangulation.locally_owned_subdomain();
       data_out.add_data_vector(subdomain, "subdomain");
 
-      data_out.build_patches(fe.degree);
+      data_out.build_patches(mapping, fe.degree);
 
       std::string filename = ("sol-" +
                               Utilities::int_to_string(cycle,4) +
@@ -810,10 +752,10 @@ void Step12<dim>::output_results (double time)
               i<Utilities::MPI::n_mpi_processes(mpi_communicator);
               ++i)
             filenames.push_back ("sol-" +
-                                        Utilities::int_to_string (cycle, 4) +
-                                        "." +
-                                        Utilities::int_to_string (i, 2) +
-                                        ".vtu");
+                                 Utilities::int_to_string (cycle, 4) +
+                                 "." +
+                                 Utilities::int_to_string (i, 2) +
+                                 ".vtu");
          all_files.push_back (filenames);
          std::ofstream visit_output ("master_file.visit");
          DataOutBase::write_visit_record(visit_output, all_files);
@@ -831,8 +773,32 @@ void Step12<dim>::output_results (double time)
 template <int dim>
 void Step12<dim>::run ()
 {
-   //GridGenerator::subdivided_hyper_cube (triangulation,100,-1.0,+1.0);
-   GridGenerator::hyper_shell(triangulation,Point<dim>(0.0,0.0), 0.1, 1.0);
+   int grid = 2;
+
+   if(grid == 0)
+   {
+      GridGenerator::subdivided_hyper_cube (triangulation,100,-1.0,+1.0);
+   }
+   else if(grid == 1)
+   {
+      GridGenerator::hyper_shell(triangulation,Point<dim>(0.0,0.0), 0.1, 1.0);
+      triangulation.refine_global(5);
+   }
+   else if(grid == 2)
+   {
+      GridIn<dim> grid_in;
+      grid_in.attach_triangulation (triangulation);
+      std::ifstream gfile ("annulus.msh");
+      AssertThrow(gfile.is_open(), ExcMessage("Grid file not found"));
+      grid_in.read_msh(gfile);
+
+      const Point<dim> center(0.0, 0.0);
+      const SphericalManifold<dim> manifold(center);
+      triangulation.set_all_manifold_ids(0);
+      triangulation.set_all_manifold_ids_on_boundary(1);
+      triangulation.set_manifold(1, manifold);
+   }
+
    setup_system ();
    set_initial_condition ();
    output_results(0);
@@ -855,7 +821,7 @@ int main (int argc, char *argv[])
       //dealllog.depth_console(0);
 
       unsigned int degree = 1;
-      TestCase test_case = square;
+      TestCase test_case = expo;
       Step12<2> dgmethod(degree, test_case);
       dgmethod.run ();
    }
