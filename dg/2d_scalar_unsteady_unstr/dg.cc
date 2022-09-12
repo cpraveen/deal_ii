@@ -39,18 +39,22 @@
 #include <fstream>
 #include <cmath>
 
-//#define USE_PETSC_LA
+// #define FORCE_USE_OF_TRILINOS
 
-using namespace dealii;
-
+// Use petsc by default, to use trilinos uncomment above line
 namespace LA
 {
-#ifdef USE_PETSC_LA
-   using namespace ::PETScWrappers;
+#if defined(DEAL_II_WITH_PETSC) && !defined(DEAL_II_PETSC_WITH_COMPLEX) && \
+    !(defined(DEAL_II_WITH_TRILINOS) && defined(FORCE_USE_OF_TRILINOS))
+   using namespace dealii::LinearAlgebraPETSc;
+#elif defined(DEAL_II_WITH_TRILINOS)
+   using namespace dealii::LinearAlgebraTrilinos;
 #else
-   using namespace ::TrilinosWrappers;
+#error DEAL_II_WITH_PETSC or DEAL_II_WITH_TRILINOS required
 #endif
 }
+
+using namespace dealii;
 
 const double a_rk[] = {0.0, 3.0/4.0, 1.0/3.0};
 const double b_rk[] = {1.0, 1.0/4.0, 2.0/3.0};
