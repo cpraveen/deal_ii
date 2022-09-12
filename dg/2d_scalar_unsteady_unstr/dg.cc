@@ -376,7 +376,7 @@ void Step12<dim>::set_initial_condition ()
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
    std::vector<double> initial_values (n_q_points);
-   Vector<double> cell_vector(dofs_per_cell);
+   std::vector<double> cell_vector(dofs_per_cell);
    InitialCondition<dim> initial_condition(test_case);
 
    typename DoFHandler<dim>::active_cell_iterator
@@ -390,14 +390,14 @@ void Step12<dim>::set_initial_condition ()
       fe_values.reinit (cell);
       initial_condition.value_list (fe_values.get_quadrature_points(),
                                     initial_values);
-      cell_vector = 0;
       for(unsigned int i=0; i<dofs_per_cell; ++i)
       {
+         cell_vector[i] = 0;
          for(unsigned int q=0; q<n_q_points; ++q)
-            cell_vector(i) += initial_values[q] *
+            cell_vector[i] += initial_values[q] *
                               fe_values.shape_value(i,q) *
                               fe_values.JxW(q);
-         cell_vector(i) /= mass_matrix(local_dof_indices[i]);
+         cell_vector[i] /= mass_matrix(local_dof_indices[i]);
       }
 
       right_hand_side.set(local_dof_indices, cell_vector);
@@ -822,7 +822,7 @@ int main (int argc, char *argv[])
 {
    try
    {
-      Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv);
+      Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
       //dealllog.depth_console(0);
 
       unsigned int degree = 1;
