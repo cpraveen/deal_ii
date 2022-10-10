@@ -66,14 +66,14 @@ class InitialCondition: public Function<dim>
 {
 public:
    InitialCondition () {};
-   virtual void value_list (const std::vector<Point<dim> > &points,
+   virtual void value_list (const std::vector<Point<dim>> &points,
                             std::vector<double> &values,
                             const unsigned int component=0) const;
 };
 
 // Computes boundary condition value at a list of boundary points
 template <int dim>
-void InitialCondition<dim>::value_list(const std::vector<Point<dim> > &points,
+void InitialCondition<dim>::value_list(const std::vector<Point<dim>> &points,
                                      std::vector<double> &values,
                                      const unsigned int) const
 {
@@ -99,14 +99,14 @@ class BoundaryValues: public Function<dim>
 {
   public:
     BoundaryValues () {};
-    virtual void value_list (const std::vector<Point<dim> > &points,
+    virtual void value_list (const std::vector<Point<dim>> &points,
 			                    std::vector<double> &values,
 			                    const unsigned int component=0) const;
 };
 
 // Computes boundary condition value at a list of boundary points
 template <int dim>
-void BoundaryValues<dim>::value_list(const std::vector<Point<dim> > &points,
+void BoundaryValues<dim>::value_list(const std::vector<Point<dim>> &points,
 				       std::vector<double> &values,
 				       const unsigned int) const
 {
@@ -131,7 +131,7 @@ class RHSIntegrator
 
       MeshWorker::IntegrationInfoBox<dim> info_box;
       MeshWorker::DoFInfo<dim> dof_info;
-      MeshWorker::Assembler::ResidualSimple< Vector<double> >
+      MeshWorker::Assembler::ResidualSimple< Vector<double>>
          assembler;
 };
 
@@ -219,13 +219,14 @@ void Step12<dim>::assemble_mass_matrix ()
    std::cout << "Constructing mass matrix ...\n";
    
    QGauss<dim>  quadrature_formula(fe.degree+1);
-   FEValues<dim> fe_values (fe, 
+   FEValues<dim> fe_values (mapping,
+                            fe, 
                             quadrature_formula,
                             update_JxW_values);
    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
    std::vector<unsigned int> local_dof_indices(dofs_per_cell);
       
-   for (auto cell : dof_handler.active_cell_iterators())
+   for (auto &cell : dof_handler.active_cell_iterators())
    {
       fe_values.reinit (cell);
       cell->get_dof_indices(local_dof_indices);
@@ -240,7 +241,8 @@ void Step12<dim>::assemble_mass_matrix ()
 template <int dim>
 void Step12<dim>::set_initial_condition ()
 {
-   VectorTools::create_right_hand_side(dof_handler,
+   VectorTools::create_right_hand_side(mapping,
+                                       dof_handler,
                                        QGauss<dim>(fe.degree+1),
                                        InitialCondition<dim>(),
                                        solution);
@@ -256,7 +258,7 @@ void Step12<dim>::setup_mesh_worker (RHSIntegrator<dim>& rhs_integrator)
 
    MeshWorker::IntegrationInfoBox<dim>& info_box = rhs_integrator.info_box;
    MeshWorker::DoFInfo<dim>& dof_info = rhs_integrator.dof_info;
-   MeshWorker::Assembler::ResidualSimple< Vector<double> >&
+   MeshWorker::Assembler::ResidualSimple<Vector<double>>&
       assembler = rhs_integrator.assembler;
 
    const unsigned int n_gauss_points = dof_handler.get_fe().degree+1;
@@ -295,7 +297,7 @@ void Step12<dim>::compute_dt ()
       
    dt = 1.0e20;
    
-   for (auto cell : dof_handler.active_cell_iterators())
+   for (auto &cell : dof_handler.active_cell_iterators())
    {
       double h = cell->minimum_vertex_distance();
       const Point<dim> cell_center = cell->center();
@@ -318,8 +320,9 @@ void Step12<dim>::assemble_rhs (RHSIntegrator<dim>& rhs_integrator)
    right_hand_side = 0.0;
 
    MeshWorker::loop<dim, dim, MeshWorker::DoFInfo<dim>,
-                    MeshWorker::IntegrationInfoBox<dim> >
-      (dof_handler.begin_active(), dof_handler.end(),
+                    MeshWorker::IntegrationInfoBox<dim>>
+      (dof_handler.begin_active(), 
+       dof_handler.end(),
        rhs_integrator.dof_info, 
        rhs_integrator.info_box,
        &Step12<dim>::integrate_cell_term,
@@ -368,7 +371,7 @@ void Step12<dim>::integrate_boundary_term (DoFInfo& dinfo, CellInfo& info)
    
    std::vector<double> g(fe_v.n_quadrature_points);
    
-   static BoundaryValues<dim> boundary_function;
+   BoundaryValues<dim> boundary_function;
    boundary_function.value_list (fe_v.get_quadrature_points(), g);
    
    for (unsigned int point=0; point<fe_v.n_quadrature_points; ++point)
@@ -416,8 +419,8 @@ void Step12<dim>::integrate_face_term (DoFInfo& dinfo1, DoFInfo& dinfo2,
       Point<dim> beta;
       advection_speed(fe_v.quadrature_point(point), beta);
       
-      const double beta_n=beta * normals[point];
-      if (beta_n>0)
+      const double beta_n = beta * normals[point];
+      if (beta_n > 0)
       {
          for (unsigned int i=0; i<fe_v.dofs_per_cell; ++i)
             local_vector1(i) -= beta_n *
@@ -485,7 +488,7 @@ void Step12<dim>::solve ()
 }
 
 //------------------------------------------------------------------------------
-// Refine grid
+// Refine grid: NOT USED
 //------------------------------------------------------------------------------
 template <int dim>
 void Step12<dim>::refine_grid ()
@@ -502,9 +505,9 @@ void Step12<dim>::refine_grid ()
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
    for (unsigned int cell_no=0; cell!=endc; ++cell, ++cell_no)
-      gradient_indicator(cell_no)*=std::pow(cell->diameter(), 1+1.0*dim/2);
+      gradient_indicator(cell_no) *= std::pow(cell->diameter(), 1+1.0*dim/2);
    
-   SolutionTransfer<dim, Vector<double> > soltrans(dof_handler);
+   SolutionTransfer<dim, Vector<double>> soltrans(dof_handler);
    GridRefinement::refine_and_coarsen_fixed_fraction (triangulation,
                                                       gradient_indicator,
                                                       0.3, 0.0);
@@ -535,7 +538,7 @@ void Step12<dim>::output_results (const double time) const
    DataOut<dim> data_out;
    data_out.attach_dof_handler (dof_handler);
    data_out.add_data_vector (solution, "u");
-   data_out.build_patches (fe.degree);
+   data_out.build_patches (mapping, fe.degree);
    DataOutBase::VtkFlags flags(time, cycle);
    data_out.set_flags(flags);
    data_out.write_vtk (outfile);
@@ -604,5 +607,3 @@ int main ()
    
    return 0;
 }
-
-
