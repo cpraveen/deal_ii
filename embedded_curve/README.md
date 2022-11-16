@@ -10,10 +10,10 @@ space-grid.
 
 After running code, plot these two files: `embedded_grid.vtk` and `marker.vtk`.
 
-<center>
+<p align="center">
 <img src="grid1.png" alt="Grid" style="height: 800px; width:800px;"/>
-</center>
+</p>
 
-<center>
+<p align="center">
 <img src="grid2.png" alt="Grid" style="height: 800px; width:800px;"/>
-</center>
+</p>
