@@ -131,7 +131,7 @@ public:
    {}
 
    virtual double value (const Point<dim>   &p,
-                         const unsigned int  component = 0) const;
+                         const unsigned int  component = 0) const override;
 
 private:
    TestCase test_case;
@@ -183,9 +183,9 @@ public:
    {}
 
    virtual double value (const Point<dim>   &p,
-                         const unsigned int  component = 0) const;
+                         const unsigned int  component = 0) const override;
    virtual Tensor<1,dim> gradient (const Point<dim>   &p,
-                                   const unsigned int  component = 0) const;
+                                   const unsigned int  component = 0) const override;
 private:
    TestCase test_case;
 };
@@ -613,7 +613,7 @@ void ScalarProblem<dim>::assemble_rhs ()
                              update_JxW_values);
 
    // for getting neighbour cell solutions to compute intercell flux
-   QTrapez<dim> quadrature_dummy;
+   QTrapezoid<dim> quadrature_dummy;
    FEValues<dim> fe_values_neighbor (fe, quadrature_dummy,
                             update_values   | update_gradients);
 
@@ -779,7 +779,7 @@ void ScalarProblem<dim>::mark_troubled_cells ()
 {
    const double EPS = 1.0e-14;
 
-   QTrapez<dim>  quadrature_formula;
+   QTrapezoid<dim>  quadrature_formula;
 
    FEValues<dim> fe_values (fe, quadrature_formula, update_values);
    std::vector<double> face_values(2), limited_face_values(2);

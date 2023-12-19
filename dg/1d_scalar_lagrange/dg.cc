@@ -1,30 +1,30 @@
-#include <grid/tria.h>
-#include <dofs/dof_handler.h>
-#include <grid/grid_generator.h>
-#include <grid/tria_accessor.h>
-#include <grid/tria_iterator.h>
-#include <dofs/dof_accessor.h>
-#include <fe/fe_dgq.h>
-#include <dofs/dof_tools.h>
-#include <fe/fe_values.h>
-#include <base/quadrature_lib.h>
-#include <base/function.h>
-#include <numerics/vector_tools.h>
-#include <numerics/matrix_tools.h>
-#include <lac/vector.h>
-#include <lac/full_matrix.h>
-#include <lac/sparse_matrix.h>
-#include <lac/compressed_sparsity_pattern.h>
+#include <deal.II/grid/tria.h>
+#include <deal.II/dofs/dof_handler.h>
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/tria_accessor.h>
+#include <deal.II/grid/tria_iterator.h>
+#include <deal.II/dofs/dof_accessor.h>
+#include <deal.II/fe/fe_dgq.h>
+#include <deal.II/dofs/dof_tools.h>
+#include <deal.II/fe/fe_values.h>
+#include <deal.II/base/quadrature_lib.h>
+#include <deal.II/base/function.h>
+#include <deal.II/numerics/vector_tools.h>
+#include <deal.II/numerics/matrix_tools.h>
+#include <deal.II/lac/vector.h>
+#include <deal.II/lac/full_matrix.h>
+#include <deal.II/lac/sparse_matrix.h>
+#include <deal.II/lac/dynamic_sparsity_pattern.h>
 
-#include <numerics/data_out.h>
-#include <numerics/fe_field_function.h>
+#include <deal.II/numerics/data_out.h>
+#include <deal.II/numerics/fe_field_function.h>
 
-#include <base/convergence_table.h>
+#include <deal.II/base/convergence_table.h>
 
 #include <fstream>
 #include <iostream>
 
-#include <base/logstream.h>
+#include <deal.II/base/logstream.h>
 
 using namespace dealii;
 
@@ -84,17 +84,18 @@ class InitialCondition : public Function<dim>
 public:
    InitialCondition () : Function<dim>() {}
    
-   virtual void value (const Point<dim>   &p,
-                       double& values) const;
+   virtual double value (const Point<dim>   &p,
+                         const unsigned int component=0) const override;
    TestCase test_case;
 };
 
 // Initial condition
 template<int dim>
-void InitialCondition<dim>::value (const Point<dim>   &p,
-                                   double& values) const
+double InitialCondition<dim>::value (const Point<dim>   &p,
+                                     const unsigned int /* component */) const
 {
    double x = p[0];
+   double values;
    
    // test case: sine
    if(test_case == sine)
@@ -108,6 +109,7 @@ void InitialCondition<dim>::value (const Point<dim>   &p,
       else
          values = 0.0;
    }
+   return values;
 }
 
 //------------------------------------------------------------------------------
@@ -120,7 +122,7 @@ public:
    Solution () : Function<dim>() {}
    
    virtual double value (const Point<dim>   &p,
-                         const unsigned int  component = 0) const;
+                         const unsigned int  component = 0) const override;
 };
 
 // Exact solution: works correctly only for periodic case
@@ -266,9 +268,9 @@ void ScalarProblem<dim>::make_grid_and_dofs (unsigned int step)
               << dof_handler.n_dofs()
               << std::endl;
 
-    CompressedSparsityPattern c_sparsity(dof_handler.n_dofs());
-    DoFTools::make_sparsity_pattern (dof_handler, c_sparsity);
-    sparsity_pattern.copy_from(c_sparsity);
+    DynamicSparsityPattern dsp(dof_handler.n_dofs());
+    DoFTools::make_sparsity_pattern (dof_handler, dsp);
+    sparsity_pattern.copy_from(dsp);
    
     inv_mass_matrix.reinit (sparsity_pattern);
    
@@ -449,7 +451,7 @@ void numerical_flux (const FluxType& flux_type,
          break;
 
       default:
-         cout << "Unknown flux_type !!!\n";
+         std::cout << "Unknown flux_type !!!\n";
          abort ();
    }
 }
@@ -468,7 +470,7 @@ void ScalarProblem<dim>::assemble_rhs ()
                              update_JxW_values);
 
    // for getting neighbour cell solutions to compute intercell flux
-   QTrapez<dim> quadrature_dummy;
+   QTrapezoid<dim> quadrature_dummy;
    FEValues<dim> fe_values_neighbor (fe, quadrature_dummy,
                             update_values   | update_gradients);
    
@@ -653,7 +655,7 @@ void ScalarProblem<dim>::apply_limiter_TVD ()
 {
    Assert (fe.degree==1, ExcIndexRange(fe.degree, 1, 2));
    
-   QTrapez<dim>  quadrature_formula;
+   QTrapezoid<dim>  quadrature_formula;
    
    FEValues<dim> fe_values (fe, quadrature_formula, update_values);
    std::vector<double> face_values(2);
@@ -755,7 +757,7 @@ void ScalarProblem<dim>::output_results (const double& time) const
        data_out.build_patches (2*fe.degree);
    
     std::string filename = "sol_" + Utilities::int_to_string(c) + ".gpl";
-    cout << filename << endl;
+    std::cout << filename << std::endl;
    
    std::ofstream output (filename);
    data_out.write_gnuplot (output);
@@ -771,7 +773,7 @@ void ScalarProblem<dim>::output_results (const double& time) const
    for (unsigned int c=0; cell!=endc; ++c, ++cell)
    {
       Point<dim> x = cell->center();
-      fo << x(0) << " " << average[c](0) << endl;
+      fo << x(0) << " " << average[c](0) << std::endl;
    }
    
    fo.close ();
@@ -813,7 +815,7 @@ void ScalarProblem<dim>::solve ()
        
        if(iter==0)
        {
-          std::cout << "Initial residual = " << residual << endl;
+          std::cout << "Initial residual = " << residual << std::endl;
           residual0 = residual;
        }
        
@@ -825,10 +827,10 @@ void ScalarProblem<dim>::solve ()
        
        if(debug)
       std::cout << "Iter = " << iter << " time = " << time 
-                << " Res =" << residual << endl;
+                << " Res =" << residual << std::endl;
     }
    std::cout << "Iter = " << iter << " time = " << time 
-             << " Res =" << residual << endl;
+             << " Res =" << residual << std::endl;
 
     output_results (time);
 }
@@ -919,4 +921,3 @@ int main ()
 
     return 0;
 }
-

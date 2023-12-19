@@ -1,27 +1,27 @@
-#include <grid/tria.h>
-#include <dofs/dof_handler.h>
-#include <grid/grid_generator.h>
-#include <grid/tria_accessor.h>
-#include <grid/tria_iterator.h>
-#include <dofs/dof_accessor.h>
-#include <fe/fe_dgq.h>
-#include <dofs/dof_tools.h>
-#include <fe/fe_values.h>
-#include <base/quadrature_lib.h>
-#include <base/function.h>
-#include <numerics/vector_tools.h>
-#include <numerics/matrix_tools.h>
-#include <lac/vector.h>
-#include <lac/full_matrix.h>
-#include <lac/sparse_matrix.h>
-#include <lac/compressed_sparsity_pattern.h>
+#include <deal.II/grid/tria.h>
+#include <deal.II/dofs/dof_handler.h>
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/tria_accessor.h>
+#include <deal.II/grid/tria_iterator.h>
+#include <deal.II/dofs/dof_accessor.h>
+#include <deal.II/fe/fe_dgq.h>
+#include <deal.II/dofs/dof_tools.h>
+#include <deal.II/fe/fe_values.h>
+#include <deal.II/base/quadrature_lib.h>
+#include <deal.II/base/function.h>
+#include <deal.II/numerics/vector_tools.h>
+#include <deal.II/numerics/matrix_tools.h>
+#include <deal.II/lac/vector.h>
+#include <deal.II/lac/full_matrix.h>
+#include <deal.II/lac/sparse_matrix.h>
+#include <deal.II/lac/dynamic_sparsity_pattern.h>
 
-#include <numerics/data_out.h>
-#include <numerics/fe_field_function.h>
+#include <deal.II/numerics/data_out.h>
+#include <deal.II/numerics/fe_field_function.h>
 #include <fstream>
 #include <iostream>
 
-#include <base/logstream.h>
+#include <deal.II/base/logstream.h>
 
 using namespace dealii;
 
@@ -73,7 +73,7 @@ public:
    InitialCondition () : Function<dim>() {}
    
    virtual void vector_value (const Point<dim>   &p,
-                              Vector<double>& values) const;
+                              Vector<double>& values) const override;
 };
 
 // Initial condition for density, velocity, pressure
@@ -203,7 +203,7 @@ EulerProblem<dim>::EulerProblem (unsigned int degree, TestCase test_case) :
    dx      = (xmax - xmin) / n_cells;
 
    double d = 1.0/( 1.0/(gas_gamma - 1.0) - dim/2.0 );
-   alpha = std::sqrt(2.0*M_PI) * gamma(1.0 + 1.0/d);
+   alpha = std::sqrt(2.0*M_PI) * gas_gamma * (1.0 + 1.0/d);
 
 }
 
@@ -228,9 +228,9 @@ void EulerProblem<dim>::make_grid_and_dofs ()
               << dof_handler.n_dofs()
               << std::endl;
 
-    CompressedSparsityPattern c_sparsity(dof_handler.n_dofs());
-    DoFTools::make_sparsity_pattern (dof_handler, c_sparsity);
-    sparsity_pattern.copy_from(c_sparsity);
+    DynamicSparsityPattern dsp(dof_handler.n_dofs());
+    DoFTools::make_sparsity_pattern (dof_handler, dsp);
+    sparsity_pattern.copy_from(dsp);
    
     inv_mass_matrix.reinit (sparsity_pattern);
    
@@ -571,7 +571,7 @@ void EulerProblem<dim>::assemble_rhs ()
                              update_JxW_values);
 
    // for getting neighbour cell solutions to compute intercell flux
-   QTrapez<dim> quadrature_dummy;
+   QTrapezoid<dim> quadrature_dummy;
    FEValues<dim> fe_values_neighbor (fe, quadrature_dummy,
                             update_values   | update_gradients);
    
@@ -826,8 +826,7 @@ void EulerProblem<dim>::apply_limiter ()
    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
    
    typename DoFHandler<dim>::active_cell_iterator 
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
+      cell = dof_handler.begin_active();
    
    // dont limit in first cell, skip it.
    ++cell;
@@ -985,7 +984,7 @@ void EulerProblem<dim>::run ()
        {
           std::cout << "Initial residual = " << residual[0] << " "
                     << residual[1] << " "
-                    << residual[2] << endl;
+                    << residual[2] << std::endl;
           for(unsigned int i=0; i<3; ++i)
              residual0[i] = residual[i];
        }
@@ -999,7 +998,7 @@ void EulerProblem<dim>::run ()
        
       std::cout << "Iter = " << iter << " time = " << time 
                 << " Res =" << residual[0] << " " << residual[1] << " "
-                << residual[2] << endl;
+                << residual[2] << std::endl;
     }
     output_results ();
 }
@@ -1017,4 +1016,3 @@ int main ()
 
     return 0;
 }
-

@@ -171,9 +171,9 @@ class ExactSolution : public Function<dim>
 public:
    ExactSolution () : Function<dim>() {}
    
-   virtual double value (const Point<dim>   &p, const unsigned int component = 0) const;
+   virtual double value (const Point<dim>   &p, const unsigned int component = 0) const override;
    virtual Tensor<1,dim> gradient (const Point<dim>   &p,
-                                   const unsigned int  component = 0) const;
+                                   const unsigned int  component = 0) const override;
 };
 
 template<int dim>
@@ -202,7 +202,7 @@ public:
    InitialCondition () : Function<dim>() {}
    
    virtual void vector_value (const Point<dim>   &p,
-                              Vector<double>& values) const;
+                              Vector<double>& values) const override;
    std::string test_case;
 };
 
@@ -1317,7 +1317,7 @@ void EulerProblem<dim>::assemble_rhs ()
                              update_JxW_values);
 
    // for getting neighbour cell solutions to compute intercell flux
-   QTrapez<dim> quadrature_dummy;
+   QTrapezoid<dim> quadrature_dummy;
    FEValues<dim> fe_values_neighbor (fe, quadrature_dummy,
                             update_values   | update_gradients);
    
@@ -1615,7 +1615,7 @@ void EulerProblem<dim>::identify_troubled_cells ()
    if(shock_indicator == ind_entropy_residual) return;
 
 
-   QTrapez<dim>  quadrature_formula;
+   QTrapezoid<dim>  quadrature_formula;
 
    FEValues<dim> fe_values (fe, quadrature_formula, update_values);
    FEValues<dim> fe_values_nbr (fe, quadrature_formula, update_values);
@@ -1766,7 +1766,7 @@ void EulerProblem<dim>::compute_entropy_residual_1 ()
    if(shock_indicator != ind_entropy_residual) return;
    if(fe.degree == 0) return;
 
-   QIterated<dim> quadrature_formula (QTrapez<dim>(), n_entropy_residual-1);
+   QIterated<dim> quadrature_formula (QTrapezoid<dim>(), n_entropy_residual-1);
    
    FEValues<dim> fe_values (fe, quadrature_formula,
                             update_values   | update_gradients);
@@ -1821,7 +1821,7 @@ void EulerProblem<dim>::compute_entropy_residual_2 ()
    if(shock_indicator != ind_entropy_residual) return;
    if(fe.degree == 0) return;
 
-   QIterated<dim> quadrature_formula (QTrapez<dim>(), n_entropy_residual-1);
+   QIterated<dim> quadrature_formula (QTrapezoid<dim>(), n_entropy_residual-1);
    
    FEValues<dim> fe_values (fe, quadrature_formula,
                             update_values);
@@ -1891,7 +1891,7 @@ void EulerProblem<dim>::apply_limiter_TVB ()
 {
    if(fe.degree == 0) return;
    
-   QTrapez<dim>  quadrature_formula;
+   QTrapezoid<dim>  quadrature_formula;
    
    FEValues<dim> fe_values (fe, quadrature_formula, update_values);
    std::vector<double> density_face_values(2), momentum_face_values(2),
@@ -2611,7 +2611,7 @@ void EulerProblem<dim>::compute_errors(double& L2_error,
                                       density,
                                       ExactSolution<dim>(),
                                       difference_per_cell,
-                                      QIterated<dim>(QTrapez<dim>(),5),
+                                      QIterated<dim>(QTrapezoid<dim>(),5),
                                       VectorTools::Linfty_norm);
    Linf_error = difference_per_cell.linfty_norm();
 }
