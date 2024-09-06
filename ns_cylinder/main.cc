@@ -22,7 +22,7 @@
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/grid_in.h>
 #include <deal.II/grid/grid_out.h>
-#include <deal.II/grid/tria_boundary_lib.h>
+#include <deal.II/grid/manifold_lib.h>
 
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_system.h>
@@ -36,7 +36,7 @@
 
 #include <deal.II/lac/block_sparse_matrix.h>
 #include <deal.II/lac/block_sparsity_pattern.h>
-#include <deal.II/lac/constraint_matrix.h>
+#include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/sparse_direct.h>
 
 #include <deal.II/numerics/vector_tools.h>
@@ -164,10 +164,10 @@ class InitialCondition : public Function<dim>
 {
 public:
    InitialCondition () : Function<dim>(dim+1) {}
-   virtual double value (const Point<dim>   &p,
-                         const unsigned int  component = 0) const;
-   virtual void vector_value (const Point<dim> &p,
-                              Vector<double>   &value) const;
+   double value (const Point<dim>   &p,
+                 const unsigned int  component = 0) const override;
+   void vector_value (const Point<dim> &p,
+                      Vector<double>   &value) const override;
 };
 
 template <int dim>
@@ -246,7 +246,7 @@ private:
    DoFHandler<dim>            dof_handler_scalar;
    MappingQ<dim>              mapping;
    
-   ConstraintMatrix           constraints;
+   AffineConstraints<double>  constraints;
    BlockSparsityPattern       sparsity_pattern;
    BlockSparseMatrix<double>  system_matrix_constant;
    BlockSparseMatrix<double>  system_matrix;
@@ -293,10 +293,9 @@ NS<dim>::NS (ParameterHandler &prm)
    viscosity = Uref*Lref/Re;
 
    // Set cylinder boundary description
-   double radius = Lref / 2.0;
    Point<dim> center (0.0, 0.0);
-   static const HyperBallBoundary<dim> boundary_description (center, radius);
-   triangulation.set_boundary (2, boundary_description);
+   static const SphericalManifold<dim> boundary_description (center);
+   triangulation.set_manifold (2, boundary_description);
    
    std::string grid_output_file = "grid.eps";
    std::ofstream grid_output(grid_output_file);
@@ -319,7 +318,7 @@ void NS<dim>::make_grid_dofs()
    DoFRenumbering::component_wise (dof_handler, block_component);
 
    std::vector<types::global_dof_index> dofs_per_block (2);
-   DoFTools::count_dofs_per_block (dof_handler, dofs_per_block, block_component);
+   dofs_per_block = DoFTools::count_dofs_per_fe_block (dof_handler, block_component);
    const unsigned int n_u = dofs_per_block[0],
                       n_p = dofs_per_block[1];
    std::cout << "   Number of active cells: "
@@ -331,7 +330,7 @@ void NS<dim>::make_grid_dofs()
              << std::endl;
    
    {
-      BlockCompressedSimpleSparsityPattern csp (2,2);
+      BlockDynamicSparsityPattern csp (2,2);
       csp.block(0,0).reinit (n_u, n_u);
       csp.block(1,0).reinit (n_p, n_u);
       csp.block(0,1).reinit (n_u, n_p);
@@ -369,7 +368,7 @@ void NS<dim>::make_grid_dofs()
    DoFRenumbering::Cuthill_McKee (dof_handler_scalar);
 
    {
-      CompressedSparsityPattern csp (dof_handler_scalar.n_dofs());
+      DynamicSparsityPattern csp (dof_handler_scalar.n_dofs());
       DoFTools::make_sparsity_pattern (dof_handler_scalar, csp);
       sparsity_pattern_scalar.copy_from (csp);
    }
@@ -646,7 +645,10 @@ void NS<dim>::assemble_matrix_and_rhs (unsigned int order)
       solution2.block(0) = solution0.block(0);
    else
       // solution2 = 2 * solution1 - solution0
-      solution2.block(0).equ(2.0, solution1.block(0), -1.0, solution0.block(0));
+      // Step 1: solution2 = 2 * solution1
+      solution2.block(0).equ(2.0, solution1.block(0));
+      // Step 2: solution2 += (-1) * solution0
+      solution2.block(0).add(-1.0, solution0.block(0));
    
    system_matrix.copy_from(system_matrix_constant);
    system_rhs    = 0;
@@ -672,13 +674,13 @@ void NS<dim>::assemble_matrix_and_rhs (unsigned int order)
    VectorTools::interpolate_boundary_values (mapping,
                                              dof_handler,
                                              2,
-                                             ZeroFunction<dim>(dim+1),
+                                             Functions::ZeroFunction<dim>(dim+1),
                                              boundary_values,
                                              fe.component_mask(velocities));
    VectorTools::interpolate_boundary_values (mapping,
                                              dof_handler,
                                              3,
-                                             ZeroFunction<dim>(dim+1),
+                                             Functions::ZeroFunction<dim>(dim+1),
                                              boundary_values,
                                              fe.component_mask(velocities));
    MatrixTools::apply_boundary_values (boundary_values,
@@ -785,12 +787,11 @@ NS<dim>::output_results ()  const
 
    data_out.build_patches (mapping, degree+1);
    
-   std::ostringstream filename;
-   filename << "solution-"
-            << Utilities::int_to_string (cycle, 3)
-            << ".vtk";
-   std::ofstream output (filename.str().c_str());
+   std::string filename = "solution-" 
+                          + Utilities::int_to_string (cycle, 3) + ".vtk";
+   std::ofstream output (filename);
    data_out.write_vtk (output);
+   std::cout << "Wrote solution into " << filename << std::endl;
    
    ++cycle;
 }
@@ -932,8 +933,7 @@ int main(int argc, char *argv[])
       
       ParameterHandler prm;
       declare_parameters (prm);
-      bool status = prm.read_input (parameter_file, true);
-      AssertThrow( status, ExcFileNotOpen(parameter_file.c_str()) );
+      prm.parse_input (parameter_file);
       
       NS<2> ns_problem (prm);
       ns_problem.run();
