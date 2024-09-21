@@ -142,9 +142,9 @@ public:
    :
    test_case (test_case)
    {};
-   virtual void value_list (const std::vector<Point<dim>> &points,
-                            std::vector<double> &values,
-                            const unsigned int component=0) const;
+   void value_list (const std::vector<Point<dim>> &points,
+                    std::vector<double> &values,
+                    const unsigned int component=0) const override;
 private:
    TestCase test_case;
 };
@@ -198,16 +198,16 @@ class BoundaryValues: public Function<dim>
 {
   public:
     BoundaryValues () {};
-    virtual void value_list (const std::vector<Point<dim>> &points,
-			                    std::vector<double> &values,
-			                    const unsigned int component=0) const;
+    void value_list (const std::vector<Point<dim>> &points,
+                     std::vector<double> &values,
+                     const unsigned int component=0) const override;
 };
 
 // Computes boundary condition value at a list of boundary points
 template <int dim>
 void BoundaryValues<dim>::value_list(const std::vector<Point<dim>> &points,
-				       std::vector<double> &values,
-				       const unsigned int) const
+                                     std::vector<double> &values,
+                                     const unsigned int) const
 {
    Assert(values.size()==points.size(),
           ExcDimensionMismatch(values.size(),points.size()));
@@ -263,7 +263,7 @@ private:
    void output_results (double time);
    double compute_cell_average(const typename DoFHandler<dim>::cell_iterator& cell);
 
-   MPI_Comm 					  mpi_communicator;
+   MPI_Comm             mpi_communicator;
 
    parallel::distributed::Triangulation<dim>   triangulation;
 
@@ -275,8 +275,8 @@ private:
    FE_DGP<dim>          fe_cell;
    DoFHandler<dim>      dof_handler_cell;
 
-   IndexSet 		      locally_owned_dofs;
-   IndexSet 		      locally_relevant_dofs;
+   IndexSet             locally_owned_dofs;
+   IndexSet             locally_relevant_dofs;
 
    LA::MPI::Vector      mass_matrix;
    LA::MPI::Vector      solution;
@@ -302,8 +302,8 @@ private:
    static void integrate_boundary_term (DoFInfo& dinfo, CellInfo& info);
    static void integrate_face_term (DoFInfo& dinfo1, DoFInfo& dinfo2,
                                     CellInfo& info1, CellInfo& info2);
-   ConditionalOStream 	pcout;
-   TimerOutput 		computing_timer;
+   ConditionalOStream  pcout;
+   TimerOutput         computing_timer;
 
 };
 
@@ -734,7 +734,7 @@ void Step12<dim>::integrate_boundary_term (DoFInfo& dinfo, CellInfo& info)
 //------------------------------------------------------------------------------
 template <int dim>
 void Step12<dim>::integrate_face_term (DoFInfo& dinfo1, DoFInfo& dinfo2,
-				                           CellInfo& info1, CellInfo& info2)
+                                       CellInfo& info1, CellInfo& info2)
 {
    const FEValuesBase<dim>& fe_v          = info1.fe_values();
    const FEValuesBase<dim>& fe_v_neighbor = info2.fe_values();
@@ -1305,12 +1305,12 @@ int main (int argc, char *argv[])
    {
       std::cerr << std::endl << std::endl
                 << "----------------------------------------------------"
-		          << std::endl;
+                << std::endl;
       std::cerr << "Exception on processing: " << std::endl
-		          << exc.what() << std::endl
-		          << "Aborting!" << std::endl
-		          << "----------------------------------------------------"
-		          << std::endl;
+                << exc.what() << std::endl
+                << "Aborting!" << std::endl
+                << "----------------------------------------------------"
+                << std::endl;
       return 1;
    }
    catch (...)
