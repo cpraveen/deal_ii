@@ -1,6 +1,8 @@
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_out.h>
 
+#include <fstream>
+
 using namespace dealii;
 
 void set_boundary_id(Triangulation<3>& triangulation,
