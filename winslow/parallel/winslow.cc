@@ -287,7 +287,7 @@ namespace Winslow
 
       pcout << "Saving grid for visualization\n";
       
-      QTrapez<dim-1> trapezoidal_rule;
+      QTrapezoid<dim-1> trapezoidal_rule;
       QIterated<dim-1> quadrature (trapezoidal_rule, fe.degree+1);
       unsigned int n_face_q_points = quadrature.size();
       FEFaceValues<dim> fe_face_values (fe, quadrature, update_values);
