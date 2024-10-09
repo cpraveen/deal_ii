@@ -45,8 +45,9 @@ class ElasticityModel
       void reinit(VecType&  solution);
 
       template <class VecType>
-      void solve(VecType&  solution,
-                 const int verbosity=0);
+      void solve(VecType&   solution,
+                 const bool restart=false,
+                 const int  verbosity=0);
 
       types::global_dof_index n_dofs() const
       {
@@ -214,8 +215,9 @@ void ElasticityModel<dim>::assemble_system_matrix()
 //------------------------------------------------------------------------------
 template <int dim>
 template <class VecType>
-void ElasticityModel<dim>::solve(VecType&  solution,
-                                 const int verbosity)
+void ElasticityModel<dim>::solve(VecType&   solution,
+                                 const bool restart,
+                                 const int  verbosity)
 {
    pcout << "Solving\n";
 
@@ -230,6 +232,8 @@ void ElasticityModel<dim>::solve(VecType&  solution,
 
    system_matrix.copy_from(matrix);
    VecType distributed_solution(dof_handler.locally_owned_dofs(), mpi_comm);
+   if(restart)
+      distributed_solution = solution;
    VecType system_rhs(distributed_solution);
    system_rhs = 0.0;
    MatrixTools::apply_boundary_values(boundary_values,

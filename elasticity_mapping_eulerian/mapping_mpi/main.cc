@@ -33,39 +33,53 @@ int main(int argc, char** argv)
    VecType euler_vector;
    model.reinit(euler_vector);
 
-   // Apply displacement on top boundary
-   const std::string constants = "pi=3.141592653589793";
-   const FunctionParser<dim> top_displacement("0; 0.1*sin(2*pi*x)",
-                                              constants);
-   std::map<types::global_dof_index,double> boundary_values;
-   VectorTools::interpolate_boundary_values(model.get_dof_handler(),
-                                            types::boundary_id(3),
-                                            top_displacement,
-                                            boundary_values);
-
-   // euler_vector has ghosts, we cannot write into it. Create a temporary
-   // vector without ghosts and then copy into euler_vector.
-   VecType distributed_euler_vector(model.get_dof_handler().locally_owned_dofs(),
-                                    MPI_COMM_WORLD);
-   for(auto [i,v] : boundary_values)
+   const bool restart = true;
+   const int verbosity = 2;
+   unsigned int N = 1;
+   const double dt = 1.0/N;
+   double t = 0.0;
+   for(unsigned int counter=0; counter<N; ++counter)
    {
-      if(distributed_euler_vector.in_local_range(i))
-         distributed_euler_vector(i) = v;
+      // Apply displacement on top boundary
+      const std::string constants = "pi=3.141592653589793";
+      FunctionParser<dim> top_displacement("0; 0.1*cos(2*pi*t)*sin(2*pi*x)",
+                                                constants);
+      top_displacement.set_time(t);
+      std::map<types::global_dof_index,double> boundary_values;
+      VectorTools::interpolate_boundary_values(model.get_dof_handler(),
+                                             types::boundary_id(3),
+                                             top_displacement,
+                                             boundary_values);
+
+      // euler_vector has ghosts, we cannot write into it. Create a temporary
+      // vector without ghosts and then copy into euler_vector.
+      VecType distributed_euler_vector(model.get_dof_handler().locally_owned_dofs(),
+                                       MPI_COMM_WORLD);
+      // Use previous time solution
+      distributed_euler_vector = euler_vector;
+      // Set new values at boundary
+      for(auto [i,v] : boundary_values)
+      {
+         if(distributed_euler_vector.in_local_range(i))
+            distributed_euler_vector(i) = v;
+      }
+      distributed_euler_vector.compress(VectorOperation::insert);
+      euler_vector = distributed_euler_vector;
+
+      model.solve(euler_vector, restart, verbosity);
+
+      MappingQEulerian<dim,VecType> mapping(mapping_degree,
+                                          model.get_dof_handler(),
+                                          euler_vector);
+
+      DataOut<dim> data_out;
+      data_out.attach_dof_handler(model.get_dof_handler());
+      data_out.add_data_vector(euler_vector, "euler");
+      data_out.build_patches(mapping, mapping_degree);
+      data_out.write_vtu_with_pvtu_record("./", "euler", counter, MPI_COMM_WORLD);
+
+      t += dt;
    }
-   distributed_euler_vector.compress(VectorOperation::insert);
-   euler_vector = distributed_euler_vector;
-
-   model.solve(euler_vector, 2);
-
-   MappingQEulerian<dim,VecType> mapping(mapping_degree,
-                                         model.get_dof_handler(),
-                                         euler_vector);
-
-   DataOut<dim> data_out;
-   data_out.attach_dof_handler(model.get_dof_handler());
-   data_out.add_data_vector(euler_vector, "euler");
-   data_out.build_patches(mapping, mapping_degree);
-   data_out.write_vtu_with_pvtu_record("./", "euler", 0, MPI_COMM_WORLD);
 
    return 0;
 }
