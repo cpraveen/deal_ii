@@ -26,7 +26,6 @@ int main()
    const double lambda = 1.0;
    const double mu = 1.0;
    ElasticityModel<dim> model(triangulation, mapping_degree, lambda, mu);
-
    Vector<double> euler_vector(model.n_dofs());
 
    // Apply displacement on top boundary
@@ -54,4 +53,40 @@ int main()
    data_out.build_patches(mapping, mapping_degree);
    std::ofstream output("euler.vtk");
    data_out.write_vtk(output);
+   const bool restart = true;
+   const int verbosity = 2;
+   unsigned int N = 1;
+   const double dt = 1.0 / N;
+   double t = 0.0;
+   for (unsigned int counter = 0; counter < N; ++counter)
+   {
+      // Apply displacement on top boundary
+      const std::string constants = "pi=3.141592653589793";
+      FunctionParser<dim> top_displacement("0; 0.1*cos(2*pi*t)*sin(2*pi*x)",
+                                          constants);
+      top_displacement.set_time(t);
+      std::map<types::global_dof_index,double> boundary_values;
+      VectorTools::interpolate_boundary_values(model.get_dof_handler(),
+                                             types::boundary_id(3),
+                                             top_displacement,
+                                             boundary_values);
+      for(auto [i,v] : boundary_values)
+         euler_vector(i) = v;
+
+      model.solve(euler_vector, restart, verbosity);
+      MappingQEulerian<dim> mapping(mapping_degree,
+                                    model.get_dof_handler(),
+                                    euler_vector);
+
+      DataOut<dim> data_out;
+      data_out.attach_dof_handler(model.get_dof_handler());
+      data_out.add_data_vector(euler_vector, "Euler");
+      data_out.build_patches(mapping, mapping_degree);
+      std::string filename = "euler-" + Utilities::int_to_string(counter,4) + ".vtu";
+      std::ofstream output(filename);
+      data_out.write_vtu(output);
+
+      t += dt;
+   }
+
 }

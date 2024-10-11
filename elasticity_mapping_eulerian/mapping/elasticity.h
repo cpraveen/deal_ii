@@ -37,6 +37,7 @@ class ElasticityModel
                       const double lambda,
                       const double mu);
       void solve(Vector<double>& solution,
+                 const bool restart,
                  const int verbosity=0);
 
       types::global_dof_index n_dofs() const
@@ -185,6 +186,7 @@ void ElasticityModel<dim>::assemble_system_matrix()
 //------------------------------------------------------------------------------
 template <int dim>
 void ElasticityModel<dim>::solve(Vector<double>& solution,
+                                 const bool restart,
                                  const int verbosity)
 {
    system_rhs = 0.0;
@@ -197,6 +199,7 @@ void ElasticityModel<dim>::solve(Vector<double>& solution,
    {
       boundary_values[i] = solution(i);
    }
+   if(restart == false) solution = 0.0;
    MatrixTools::apply_boundary_values(boundary_values,
                                       system_matrix,
                                       solution,
