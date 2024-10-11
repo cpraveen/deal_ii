@@ -75,7 +75,8 @@ int main(int argc, char** argv)
       DataOut<dim> data_out;
       data_out.attach_dof_handler(model.get_dof_handler());
       data_out.add_data_vector(euler_vector, "euler");
-      data_out.build_patches(mapping, mapping_degree);
+      data_out.build_patches(mapping, mapping_degree,
+                             DataOut<dim>::curved_inner_cells);
       data_out.write_vtu_with_pvtu_record("./", "euler", counter, MPI_COMM_WORLD);
 
       t += dt;
