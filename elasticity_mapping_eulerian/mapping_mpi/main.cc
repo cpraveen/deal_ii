@@ -43,13 +43,13 @@ int main(int argc, char** argv)
       // Apply displacement on top boundary
       const std::string constants = "pi=3.141592653589793";
       FunctionParser<dim> top_displacement("0; 0.1*cos(2*pi*t)*sin(2*pi*x)",
-                                                constants);
+                                           constants);
       top_displacement.set_time(t);
       std::map<types::global_dof_index,double> boundary_values;
       VectorTools::interpolate_boundary_values(model.get_dof_handler(),
-                                             types::boundary_id(3),
-                                             top_displacement,
-                                             boundary_values);
+                                               types::boundary_id(3),
+                                               top_displacement,
+                                               boundary_values);
 
       // euler_vector has ghosts, we cannot write into it. Create a temporary
       // vector without ghosts and then copy into euler_vector.
@@ -69,8 +69,8 @@ int main(int argc, char** argv)
       model.solve(euler_vector, restart, verbosity);
 
       MappingQEulerian<dim,VecType> mapping(mapping_degree,
-                                          model.get_dof_handler(),
-                                          euler_vector);
+                                            model.get_dof_handler(),
+                                            euler_vector);
 
       DataOut<dim> data_out;
       data_out.attach_dof_handler(model.get_dof_handler());

@@ -104,9 +104,9 @@ void test2(const bool move_normal)
    {
       // Apply displacement on top boundary
       const std::string constants = "pi=3.141592653589793";
-      FunctionParser<dim> top_displacement("0; cos(2*pi*t)*sin(2*pi*x)",
-                                          constants);
-      top_displacement.set_time(t);
+      FunctionParser<dim> top_velocity("0; cos(2*pi*t)*sin(2*pi*x)",
+                                       constants);
+      top_velocity.set_time(t);
 
       Vector<double> tmp_euler_vector(model.n_dofs());
       Vector<double> counter_vector(model.n_dofs());
@@ -120,12 +120,14 @@ void test2(const bool move_normal)
       std::vector<types::global_dof_index> dof_indices(fe.n_dofs_per_face());
       for(auto& cell : dof_handler.active_cell_iterators())
          for(auto face_no : GeometryInfo<dim>::face_indices())
-            if(cell->face(face_no)->at_boundary() && cell->face(face_no)->boundary_id() == 3)
+            if(cell->face(face_no)->at_boundary() && 
+               cell->face(face_no)->boundary_id() == 3)
             {
                const auto& points = fe.get_unit_face_support_points(face_no);
                cell->face(face_no)->get_dof_indices(dof_indices);
                const Quadrature<dim-1> quadrature(points);
-               std::vector<Vector<double>> velocity(quadrature.size(), Vector<double>(dim));
+               std::vector<Vector<double>> velocity_values(quadrature.size(), 
+                                                           Vector<double>(dim));
                FEFaceValues<dim> fe_face_values(mapping_current, fe, quadrature, 
                                                 update_values |
                                                 update_quadrature_points |
@@ -134,7 +136,8 @@ void test2(const bool move_normal)
 
                for(auto q : fe_face_values.quadrature_point_indices())
                {
-                  top_displacement.vector_value(fe_face_values.quadrature_point(q), velocity[q]);
+                  top_velocity.vector_value(fe_face_values.quadrature_point(q), 
+                                            velocity_values[q]);
                }
 
                for(unsigned int i=0; i<fe.n_dofs_per_face(); ++i)
@@ -143,17 +146,18 @@ void test2(const bool move_normal)
                   if(move_normal)
                   {
                      const auto normal = fe_face_values.normal_vector(i);
-                     const auto vn = velocity[i][0]*normal[0] + velocity[i][1]*normal[1];
+                     const auto vn =   velocity_values[i][0]*normal[0] 
+                                     + velocity_values[i][1]*normal[1];
                      vel = vn * normal;
                   }
                   else
                   {
-                     vel[0] = velocity[i][0];
-                     vel[1] = velocity[i][1];
+                     vel[0] = velocity_values[i][0];
+                     vel[1] = velocity_values[i][1];
                   }
                   auto comp_i = fe.face_system_to_component_index(i,face_no).first;
                   tmp_euler_vector(dof_indices[i]) += dt * vel[comp_i];
-                  counter_vector(dof_indices[i]) += 1.0;
+                  counter_vector(dof_indices[i])   += 1.0;
                }
             }
 
@@ -172,8 +176,10 @@ void test2(const bool move_normal)
          DataOut<dim> data_out;
          data_out.attach_dof_handler(model.get_dof_handler());
          data_out.add_data_vector(euler_vector, "Euler");
-         data_out.build_patches(mapping, mapping_degree, DataOut<dim>::curved_inner_cells);
-         std::string filename = "euler-" + Utilities::int_to_string(counter,4) + ".vtu";
+         data_out.build_patches(mapping, mapping_degree, 
+                                DataOut<dim>::curved_inner_cells);
+         std::string filename = "euler-" + Utilities::int_to_string(counter,4) 
+                                + ".vtu";
          std::ofstream output(filename);
          data_out.write_vtu(output);
       }
