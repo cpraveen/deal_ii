@@ -35,7 +35,9 @@ class ElasticityModel
       ElasticityModel(const Triangulation<dim>& triangulation,
                       const int    degree,
                       const double lambda,
-                      const double mu);
+                      const double mu,
+                      const std::set<types::boundary_id>& noslip_boundaries,
+                      const std::set<types::boundary_id>& slip_boundaries);
       void solve(Vector<double>& solution,
                  const bool restart,
                  const int verbosity=0);
@@ -64,6 +66,9 @@ class ElasticityModel
 
       const double              lambda;
       const double              mu;
+
+      const std::set<types::boundary_id> noslip_boundaries;
+      const std::set<types::boundary_id> slip_boundaries;
 };
 
 //------------------------------------------------------------------------------
@@ -72,11 +77,15 @@ template <int dim>
 ElasticityModel<dim>::ElasticityModel(const Triangulation<dim>& triangulation, 
                                       const int degree,
                                       const double lambda,
-                                      const double mu)
+                                      const double mu,
+                                      const std::set<types::boundary_id>& noslip_boundaries,
+                                      const std::set<types::boundary_id>& slip_boundaries)
     : dof_handler(triangulation),
       fe(FE_Q<dim>(degree), dim),
       lambda(lambda),
-      mu(mu)
+      mu(mu),
+      noslip_boundaries(noslip_boundaries),
+      slip_boundaries(slip_boundaries)
 {
    std::cout << "Elasticity model for mapping\n";
    std::cout << "   lambda = " << lambda << std::endl;
@@ -98,6 +107,10 @@ void ElasticityModel<dim>::setup_system()
 
    constraints.clear();
    DoFTools::make_hanging_node_constraints(dof_handler, constraints);
+   VectorTools::compute_no_normal_flux_constraints(dof_handler,
+                                                   0,
+                                                   slip_boundaries,
+                                                   constraints);
    constraints.close();
 
    DynamicSparsityPattern dsp(dof_handler.n_dofs(), dof_handler.n_dofs());
@@ -193,7 +206,10 @@ void ElasticityModel<dim>::solve(Vector<double>& solution,
    system_matrix.copy_from(matrix);
 
    // Apply boundary condition
-   const auto boundary_dofs = DoFTools::extract_boundary_dofs(dof_handler);
+   const ComponentMask component_mask = {};
+   const auto boundary_dofs = DoFTools::extract_boundary_dofs(dof_handler, 
+                                                              component_mask,
+                                                              noslip_boundaries);
    std::map<types::global_dof_index, double> boundary_values;
    for(auto i : boundary_dofs)
    {
@@ -218,8 +234,10 @@ void ElasticityModel<dim>::solve(Vector<double>& solution,
    PreconditionSSOR<SparseMatrix<double>> preconditioner;
    preconditioner.initialize(system_matrix, 1.2);
 
-   deallog.depth_console(verbosity);
    cg.solve(system_matrix, solution, system_rhs, preconditioner);
+   if(verbosity > 0)
+      std::cout << "CG iters = " << solver_control.last_step()
+                << ", res norm = " << solver_control.last_value() << std::endl;
 
    constraints.distribute(solution);
 }

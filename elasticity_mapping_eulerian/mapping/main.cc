@@ -13,6 +13,9 @@ using namespace dealii;
 
 const int dim = 2;
 
+//------------------------------------------------------------------------------
+// Specify displacement of top boundary
+//------------------------------------------------------------------------------
 void test1()
 {
    Triangulation<dim> triangulation;
@@ -25,20 +28,23 @@ void test1()
    const int mapping_degree = 2;
    const double lambda = 1.0;
    const double mu = 1.0;
-   ElasticityModel<dim> model(triangulation, mapping_degree, lambda, mu);
+   const std::set<types::boundary_id> noslip_boundaries = {0,1,2,3};
+   const std::set<types::boundary_id> slip_boundaries = {};
+   ElasticityModel<dim> model(triangulation, mapping_degree, lambda, mu,
+                              noslip_boundaries, slip_boundaries);
    Vector<double> euler_vector(model.n_dofs());
 
    const bool restart = true;
-   const int verbosity = 2;
+   const int verbosity = 1;
    unsigned int N = 1;
    const double dt = 1.0 / N;
    double t = 0.0;
+   // Apply displacement on top boundary
+   const std::string constants = "pi=3.141592653589793";
+   FunctionParser<dim> top_displacement("0; 0.1*cos(2*pi*t)*sin(2*pi*x)",
+                                        constants);
    for (unsigned int counter = 0; counter < N; ++counter)
    {
-      // Apply displacement on top boundary
-      const std::string constants = "pi=3.141592653589793";
-      FunctionParser<dim> top_displacement("0; 0.1*cos(2*pi*t)*sin(2*pi*x)",
-                                          constants);
       top_displacement.set_time(t);
       std::map<types::global_dof_index,double> boundary_values;
       VectorTools::interpolate_boundary_values(model.get_dof_handler(),
@@ -66,7 +72,14 @@ void test1()
 
 }
 
-void test2(const bool move_normal)
+//------------------------------------------------------------------------------
+// Specify velocity of top boundary
+// move_normal = false : move with full velocity
+//               true  : move with normal component of velocity
+// slip = false  : top wall is moving, others are fixed
+//        true   : top wall is moving, others slip
+//------------------------------------------------------------------------------
+void test2(const bool move_normal, const bool slip)
 {
    Triangulation<dim> triangulation;
    GridGenerator::subdivided_hyper_rectangle (triangulation,
@@ -78,7 +91,27 @@ void test2(const bool move_normal)
    const int mapping_degree = 2;
    const double lambda = 1.0;
    const double mu = 1.0;
-   ElasticityModel<dim> model(triangulation, mapping_degree, lambda, mu);
+   std::set<types::boundary_id> noslip_boundaries;
+   std::set<types::boundary_id> slip_boundaries;
+   // Apply displacement on top boundary
+   const std::string constants = "pi=3.141592653589793";
+   Function<dim>* top_velocity;
+   if(slip)
+   {
+      noslip_boundaries = {3};
+      slip_boundaries = {0,1,2};
+      top_velocity = new FunctionParser<dim>("0; cos(2*pi*t)*cos(2*pi*x)",
+                                             constants);
+   }
+   else
+   {
+      noslip_boundaries = {0,1,2,3};
+      slip_boundaries = {};
+      top_velocity = new FunctionParser<dim>("0; cos(2*pi*t)*sin(2*pi*x)",
+                                             constants);
+   }
+   ElasticityModel<dim> model(triangulation, mapping_degree, lambda, mu,
+                              noslip_boundaries, slip_boundaries);
    Vector<double> euler_vector(model.n_dofs());
 
    {
@@ -96,17 +129,14 @@ void test2(const bool move_normal)
    }
 
    const bool restart = true;
-   const int verbosity = 2;
+   const int verbosity = 1;
    unsigned int N = 100;
    const double dt = 1.0 / N;
    double t = 0.0;
+
    for (unsigned int counter = 1; counter <= N; ++counter)
    {
-      // Apply displacement on top boundary
-      const std::string constants = "pi=3.141592653589793";
-      FunctionParser<dim> top_velocity("0; cos(2*pi*t)*sin(2*pi*x)",
-                                       constants);
-      top_velocity.set_time(t);
+      top_velocity->set_time(t);
 
       Vector<double> tmp_euler_vector(model.n_dofs());
       Vector<double> counter_vector(model.n_dofs());
@@ -136,7 +166,7 @@ void test2(const bool move_normal)
 
                for(auto q : fe_face_values.quadrature_point_indices())
                {
-                  top_velocity.vector_value(fe_face_values.quadrature_point(q), 
+                  top_velocity->vector_value(fe_face_values.quadrature_point(q), 
                                             velocity_values[q]);
                }
 
@@ -191,7 +221,22 @@ void test2(const bool move_normal)
 
 int main()
 {
-   //test1();
-   test2(true);
+   int test_case = 2;
+
+   // Move top surface normal to itself ?
+   bool move_normal = false;
+
+   // Slip on other walls ?
+   bool slip = false;
+
+   if(test_case == 1)
+   {
+      test1();
+   }
+   else if(test_case == 2)
+   {
+      test2(move_normal, slip);
+   }
+
    return 0;
 }
