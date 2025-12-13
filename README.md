@@ -4,6 +4,8 @@ These are experimental codes written in [deal.II](https://www.dealii.org).
 
 If you want to learn `deal.II`, check out the [fem repository](https://github.com/cpraveen/fem).
 
-* `Original`: https://www.codeberg.org/cpraveen/deal_ii
-* `Mirror  `: https://git.sr.ht/~cpraveen/deal_ii
-* `Mirror  `: https://www.github.com/cpraveen/deal_ii
+---
+
+* `Origin`: https://www.codeberg.org/cpraveen/deal_ii
+* `Mirror`: https://git.sr.ht/~cpraveen/deal_ii
+* `Mirror`: https://www.github.com/cpraveen/deal_ii
