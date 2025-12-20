@@ -49,7 +49,7 @@ int main(int argc, char* argv[])
   // Periodic along x
   {
     TimerOutput::Scope t(computing_timer, "Collect faces x");
-    pcout << "  Collect periodic faces along x\n";
+    pcout << "Collect periodic faces along x\n";
     GridTools::collect_periodic_faces(triangulation,
                                       0,
                                       1,
@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
   // Periodic along y
   {
     TimerOutput::Scope t(computing_timer, "Collect faces y");
-    pcout << "  Collect periodic faces along y\n";
+    pcout << "Collect periodic faces along y\n";
     GridTools::collect_periodic_faces(triangulation,
                                       2,
                                       3,
@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
   // Periodic along z
   {
     TimerOutput::Scope t(computing_timer, "Collect faces z");
-    pcout << "  Collect periodic faces along z\n";
+    pcout << "Collect periodic faces along z\n";
     GridTools::collect_periodic_faces(triangulation,
                                       4,
                                       5,
