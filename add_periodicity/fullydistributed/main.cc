@@ -84,9 +84,8 @@ int main(int argc, char* argv[])
 
   if(nrefine > 0)
   {
-    TimerOutput::Scope t(computing_timer, "Global refine");
-    pcout << "Global refine\n";
-    triangulation.refine_global(nrefine);
+     pcout << "Cannot refine fullydistributed::Triangulation\n";
+     DEAL_II_NOT_IMPLEMENTED();
   }
 
   computing_timer.print_summary();
