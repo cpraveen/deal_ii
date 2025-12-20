@@ -32,8 +32,8 @@ int main(int argc, char* argv[])
       Triangulation<dim>::smoothing_on_refinement,
       parallel::distributed::Triangulation<dim>::mesh_reconstruction_after_repartitioning);
 
-    Point<3> point1(0, 0, 0);
-    Point<3> point2(1, 1, 1);
+    const Point<3> point1(0, 0, 0);
+    const Point<3> point2(1, 1, 1);
     if(mesh_size[0] == 0)
       GridGenerator::hyper_rectangle(triangulation, point1, point2, true);
     else
@@ -81,13 +81,16 @@ int main(int argc, char* argv[])
 
   {
     TimerOutput::Scope t(computing_timer, "Add periodicity");
+    pcout << "Applying periodicity\n";
     triangulation.add_periodicity(periodicity_vector);
   }
 
   if(nrefine > 0)
   {
     TimerOutput::Scope t(computing_timer, "Global refine");
+    pcout << "Global refine\n";
     triangulation.refine_global(nrefine);
   }
+
   computing_timer.print_summary();
 }
