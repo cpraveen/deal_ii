@@ -18,6 +18,7 @@ using namespace dealii;
 
 const int dim = 2;
 
+//-----------------------------------------------------------------------------
 template <int dim>
 class MyMap : public Function<dim>
 {
@@ -40,6 +41,7 @@ class MyMap : public Function<dim>
      const double Ay = 0.1;
 };
 
+//-----------------------------------------------------------------------------
 int main()
 {
    const int degree = 2;

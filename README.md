@@ -6,6 +6,6 @@ If you want to learn `deal.II`, check out the [fem repository](https://github.co
 
 ---
 
-* `Origin`: https://www.codeberg.org/cpraveen/deal_ii
+* `Origin`: https://codeberg.org/cpraveen/deal_ii
 * `Mirror`: https://git.sr.ht/~cpraveen/deal_ii
-* `Mirror`: https://www.github.com/cpraveen/deal_ii
+* `Mirror`: https://github.com/cpraveen/deal_ii
