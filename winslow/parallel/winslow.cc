@@ -66,8 +66,7 @@ namespace Winslow
    {
       dof_handler.distribute_dofs (fe);
       locally_owned_dofs = dof_handler.locally_owned_dofs ();
-      DoFTools::extract_locally_relevant_dofs (dof_handler,
-                                               locally_relevant_dofs);
+      locally_relevant_dofs = DoFTools::extract_locally_relevant_dofs (dof_handler);
       pcout << "Number of dofs = " << dof_handler.n_dofs() << std::endl;
       pcout << "Dofs per cell  = " << fe.dofs_per_cell << std::endl;
       pcout << "Dofs per face  = " << fe.dofs_per_face << std::endl;
@@ -87,18 +86,18 @@ namespace Winslow
       // Create hanging node constraints.
       // This is used for ax, ay and there are no boundary conditions.
       constraints.clear();
-      constraints.reinit (locally_relevant_dofs);
+      constraints.reinit (locally_owned_dofs, locally_relevant_dofs);
       DoFTools::make_hanging_node_constraints (dof_handler, constraints);
       constraints.close();
       
       // These are used for x, y. We add dirichlet bc later and close this.
       constraints_x.clear();
-      constraints_x.reinit (locally_relevant_dofs);
+      constraints_x.reinit (locally_owned_dofs, locally_relevant_dofs);
       DoFTools::make_hanging_node_constraints (dof_handler, constraints_x);
       // NOTE: We close constraints_x later in map_boundary_values()
 
       constraints_y.clear();
-      constraints_y.reinit (locally_relevant_dofs);
+      constraints_y.reinit (locally_owned_dofs, locally_relevant_dofs);
       DoFTools::make_hanging_node_constraints (dof_handler, constraints_y);
       // NOTE: We close constraints_y later in map_boundary_values()
 
@@ -202,10 +201,9 @@ namespace Winslow
    void Winslow<dim>::set_initial_condition ()
    {
       pcout << "Setting initial condition\n";
-      std::map<types::global_dof_index, Point<dim>> support_points;
-      DoFTools::map_dofs_to_support_points (MappingQ<dim,dim>(fe.degree),
-                                            dof_handler,
-                                            support_points);
+      std::map<types::global_dof_index, Point<dim>> support_points =
+         DoFTools::map_dofs_to_support_points (MappingQ<dim,dim>(fe.degree),
+                                               dof_handler);
       TrilinosWrappers::MPI::Vector x_tmp (locally_owned_dofs, mpi_communicator);
       TrilinosWrappers::MPI::Vector y_tmp (locally_owned_dofs, mpi_communicator);
       

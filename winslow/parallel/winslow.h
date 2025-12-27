@@ -35,18 +35,6 @@ namespace Winslow
          constraints.add_line (pair.first);
          constraints.set_inhomogeneity (pair.first, pair.second);
       }
-      /*
-      for (std::map<types::global_dof_index,double>::const_iterator
-           it = values.cbegin(),
-           end= values.cend();
-           it != end; ++it)
-      {
-         Assert(constraints.is_constrained(it->first)==false,
-                ExcMessage("dof is already constrained"));
-         constraints.add_line (it->first);
-         constraints.set_inhomogeneity (it->first, it->second);
-      }
-      */
    }
    
    template <int dim>
@@ -156,11 +144,8 @@ namespace Winslow
                          DoFHandler<dim>                           &dh_euler,
                          TrilinosWrappers::MPI::Vector             &euler_vector)
    {
-      IndexSet locally_owned_dofs;
-      IndexSet locally_relevant_dofs;
-      locally_owned_dofs = dh_euler.locally_owned_dofs ();
-      DoFTools::extract_locally_relevant_dofs (dh_euler,
-                                               locally_relevant_dofs);
+      const IndexSet& locally_owned_dofs = dh_euler.locally_owned_dofs ();
+      IndexSet locally_relevant_dofs = DoFTools::extract_locally_relevant_dofs (dh_euler);
       TrilinosWrappers::MPI::Vector distributed_euler_vector (locally_owned_dofs,
                                                               triangulation.get_communicator());
       
