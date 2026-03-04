@@ -118,7 +118,7 @@ int main(int argc, char* argv[])
   {
     std::cout << "Interior face: (cell,neigh) = ("
               << cell->user_index() << ","
-              << cell->neighbor_or_periodic_neighbor(f)->user_index()
+              << ncell->user_index()
               << ")" << std::endl;
   };
 
