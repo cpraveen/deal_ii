@@ -1,5 +1,7 @@
 # Periodic faces and MeshWorker
 
+> Though the code uses parallel triangulation, run this in serial only, which is enough to test the periodicity. DO NOT RUN IN PARALLEL.
+
 We make a 3x3 mesh with periodicity in both directions.
 
 Cells are numbered like this.
