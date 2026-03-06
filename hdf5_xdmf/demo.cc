@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 
   PTriangulation triangulation(MPI_COMM_WORLD);
   GridGenerator::hyper_cube(triangulation, 0.0, 1.0);
-  triangulation.refine_global(5); // 2^7 x degree(4) approx 512
+  triangulation.refine_global(7); // 2^7 x degree(4) approx 512
   DoFHandler<dim>  dof_handler(triangulation);
   const FESystem<dim> fe(FE_Q<dim>(degree), dim+2);
   dof_handler.clear();
