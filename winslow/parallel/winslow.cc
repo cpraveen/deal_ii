@@ -46,7 +46,7 @@ namespace Winslow
    //------------------------------------------------------------------------------
    template <int dim>
    Winslow<dim>::Winslow(const unsigned int   degree,
-                         PDTriangulation     &tria)
+                         Triangulation<dim>     &tria)
    :
    mpi_communicator (tria.get_communicator()),
    triangulation (&tria),

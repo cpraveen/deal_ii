@@ -80,7 +80,7 @@ namespace Winslow
    {
    public:
       Winslow (const unsigned int                         degree,
-               parallel::distributed::Triangulation<dim> &triangulation);
+               Triangulation<dim> &triangulation);
       void run (DoFHandler<dim>                          &dh_euler,
                 TrilinosWrappers::MPI::Vector            &euler_vector);
       
@@ -99,11 +99,9 @@ namespace Winslow
       void output_grids ();
       void fill_euler_vector (DoFHandler<dim>               &dh_euler,
                               TrilinosWrappers::MPI::Vector &euler_vector);
-      
-      typedef parallel::distributed::Triangulation<dim> PDTriangulation;
-      
+
       MPI_Comm                          mpi_communicator;
-      PDTriangulation*                  triangulation;
+      Triangulation<dim>*                  triangulation;
       IndexSet                          locally_owned_dofs;
       IndexSet                          locally_relevant_dofs;
       FE_Q<dim>                         fe;
@@ -140,7 +138,7 @@ namespace Winslow
    template <int dim>
    inline
    void compute_mapping (const unsigned int                         degree,
-                         parallel::distributed::Triangulation<dim> &triangulation,
+                         Triangulation<dim> &triangulation,
                          DoFHandler<dim>                           &dh_euler,
                          TrilinosWrappers::MPI::Vector             &euler_vector)
    {
