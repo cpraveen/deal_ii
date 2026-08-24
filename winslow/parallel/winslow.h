@@ -36,7 +36,7 @@ namespace Winslow
          constraints.set_inhomogeneity (pair.first, pair.second);
       }
    }
-   
+
    template <int dim>
    inline
    void g_matrix (const Tensor<1,dim>& Dx, const Tensor<1,dim>& Dy, Tensor<2,dim>& g)
@@ -46,7 +46,7 @@ namespace Winslow
       g[1][0] = g[0][1];
       g[1][1] = Dx[1] * Dx[1] + Dy[1] * Dy[1];
    }
-   
+
    template <int dim>
    inline
    Tensor<2,dim> ginvert (const Tensor<2,dim>& g)
@@ -59,22 +59,22 @@ namespace Winslow
       gi[1][0] = -c * g[1][0];
       return gi;
    }
-   
+
    template <int dim>
    inline
    void sort_points (std::vector<Point<dim>> &points)
    {
       std::vector<Point<dim>> tmp (points.size(), Point<dim>());
-      
+
       tmp[0] = points[0];
       for(unsigned int i=2; i<points.size(); ++i)
          tmp[i-1] = points[i];
       tmp[points.size()-1] = points[1];
-      
+
       for(unsigned int i=0; i<points.size(); ++i)
          points[i] = tmp[i];
    }
-   
+
    template <int dim>
    class Winslow
    {
@@ -83,7 +83,7 @@ namespace Winslow
                Triangulation<dim> &triangulation);
       void run (DoFHandler<dim>                          &dh_euler,
                 TrilinosWrappers::MPI::Vector            &euler_vector);
-      
+
    private:
       void initialize_grid ();
       void setup_system ();
@@ -106,11 +106,11 @@ namespace Winslow
       IndexSet                          locally_relevant_dofs;
       FE_Q<dim>                         fe;
       DoFHandler<dim>                   dof_handler;
-      
+
       TrilinosWrappers::MPI::Vector     x, y;
       TrilinosWrappers::MPI::Vector     x_old, y_old;
       TrilinosWrappers::MPI::Vector     ax, ay;
-      
+
       AffineConstraints<double>         constraints;
       AffineConstraints<double>         constraints_x;
       AffineConstraints<double>         constraints_y;
@@ -118,23 +118,23 @@ namespace Winslow
       TrilinosWrappers::SparseMatrix    mass_matrix;
       TrilinosWrappers::SparseMatrix    system_matrix_x;
       TrilinosWrappers::SparseMatrix    system_matrix_y;
-      
+
       TrilinosWrappers::MPI::Vector     rhs_x;
       TrilinosWrappers::MPI::Vector     rhs_y;
       TrilinosWrappers::MPI::Vector     rhs_ax;
       TrilinosWrappers::MPI::Vector     rhs_ay;
-      
+
       std::map<types::global_dof_index,double> boundary_values_x;
       std::map<types::global_dof_index,double> boundary_values_y;
 
       const QGauss<dim>                 cell_quadrature;
       const QGauss<dim-1>               face_quadrature;
-      
+
       ConditionalOStream                pcout;
-      
+
       std::shared_ptr<TrilinosWrappers::SolverDirect> mumps_solver;
    };
-   
+
    template <int dim>
    inline
    void compute_mapping (const unsigned int                         degree,
@@ -146,11 +146,11 @@ namespace Winslow
       IndexSet locally_relevant_dofs = DoFTools::extract_locally_relevant_dofs (dh_euler);
       TrilinosWrappers::MPI::Vector distributed_euler_vector (locally_owned_dofs,
                                                               triangulation.get_communicator());
-      
+
       Winslow<dim> winslow (degree, triangulation);
       winslow.run (dh_euler, distributed_euler_vector);
       euler_vector.reinit (locally_relevant_dofs, triangulation.get_communicator());
       euler_vector = distributed_euler_vector;
    }
-   
+
 }

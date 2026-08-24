@@ -40,7 +40,7 @@ using namespace dealii;
 
 namespace Winslow
 {
-   
+
    //------------------------------------------------------------------------------
    // Constructor
    //------------------------------------------------------------------------------
@@ -48,7 +48,7 @@ namespace Winslow
    Winslow<dim>::Winslow(const unsigned int   degree,
                          Triangulation<dim>     &tria)
    :
-   mpi_communicator (tria.get_communicator()),
+   mpi_communicator (tria.get_mpi_communicator()),
    triangulation (&tria),
    fe (QGaussLobatto<1>(degree+1)),
    dof_handler (tria),
@@ -57,7 +57,7 @@ namespace Winslow
    pcout (std::cout,(Utilities::MPI::this_mpi_process(mpi_communicator)==0))
    {
    }
-   
+
    //------------------------------------------------------------------------------
    // Allocate memory for vectors and matrices
    //------------------------------------------------------------------------------
@@ -70,26 +70,26 @@ namespace Winslow
       pcout << "Number of dofs = " << dof_handler.n_dofs() << std::endl;
       pcout << "Dofs per cell  = " << fe.dofs_per_cell << std::endl;
       pcout << "Dofs per face  = " << fe.dofs_per_face << std::endl;
-      
+
       x.reinit (locally_relevant_dofs, mpi_communicator);
       y.reinit (x);
       x_old.reinit (locally_owned_dofs, mpi_communicator);
       y_old.reinit (locally_owned_dofs, mpi_communicator);
       ax.reinit (x);
       ay.reinit (x);
-      
+
       rhs_x.reinit (locally_owned_dofs, locally_relevant_dofs, mpi_communicator, true);
       rhs_y.reinit (rhs_x);
       rhs_ax.reinit (rhs_x);
       rhs_ay.reinit (rhs_x);
-      
+
       // Create hanging node constraints.
       // This is used for ax, ay and there are no boundary conditions.
       constraints.clear();
       constraints.reinit (locally_owned_dofs, locally_relevant_dofs);
       DoFTools::make_hanging_node_constraints (dof_handler, constraints);
       constraints.close();
-      
+
       // These are used for x, y. We add dirichlet bc later and close this.
       constraints_x.clear();
       constraints_x.reinit (locally_owned_dofs, locally_relevant_dofs);
@@ -117,14 +117,14 @@ namespace Winslow
          system_matrix_x.reinit (sp);
          system_matrix_y.reinit (sp);
          mass_matrix.reinit (sp);
-         
+
          // Uncomment these lines to save sparsity pattern
          // Run in serial mode. Plot in gnuplot> p 'sparsity.gnu' w d
          //std::ofstream spfile ("sparsity.gnu");
          //sp.print_gnuplot(spfile);
       }
    }
-   
+
    //------------------------------------------------------------------------------
    // Save the Q1 mesh to file for visualization
    //------------------------------------------------------------------------------
@@ -133,17 +133,17 @@ namespace Winslow
    {
       pcout << "Number of cell = " << triangulation->n_active_cells();
       pcout << std::endl;
-      
+
       // We save to file only if running on one processor
       if(Utilities::MPI::n_mpi_processes(mpi_communicator) > 1) return;
-      
+
       {
          std::ofstream out ("gridq1.vtk");
          GridOut grid_out;
          grid_out.write_vtk (*triangulation, out);
          pcout << "Grid written to gridq1.vtk" << std::endl;
       }
-      
+
       {
          std::ofstream out ("gridq1.gnu");
          GridOut grid_out;
@@ -151,7 +151,7 @@ namespace Winslow
          pcout << "Grid written to gridq1.gnu" << std::endl;
       }
    }
-   
+
    //------------------------------------------------------------------------------
    // Assemble mass matrix for alpha equation
    //------------------------------------------------------------------------------
@@ -159,7 +159,7 @@ namespace Winslow
    void Winslow<dim>::assemble_mass_matrix ()
    {
       pcout << "Creating mass matrix\n";
-      
+
       FEValues<dim> fe_values (fe, cell_quadrature,
                                update_values | update_JxW_values);
       const unsigned int   dofs_per_cell = fe.dofs_per_cell;
@@ -168,7 +168,7 @@ namespace Winslow
       std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
 
       mass_matrix = 0;
-      
+
       for(typename DoFHandler<dim>::active_cell_iterator
           cell = dof_handler.begin_active(),
           endc = dof_handler.end();
@@ -177,23 +177,23 @@ namespace Winslow
          {
             fe_values.reinit (cell);
             cell_matrix = 0;
-            
+
             for(unsigned int i=0; i<dofs_per_cell; ++i)
                for(unsigned int j=0; j<dofs_per_cell; ++j)
                   for(unsigned int q=0; q<n_q_points; ++q)
                      cell_matrix(i,j) += fe_values.shape_value (i, q) *
                                          fe_values.shape_value (j, q) *
                                          fe_values.JxW (q);
-            
+
             cell->get_dof_indices(local_dof_indices);
             constraints.distribute_local_to_global (cell_matrix,
                                                     local_dof_indices,
                                                     mass_matrix);
          }
-      
+
       mass_matrix.compress (VectorOperation::add);
    }
-   
+
    //------------------------------------------------------------------------------
    // Initial coordinates are set equal to support points on the Q1 mesh
    //------------------------------------------------------------------------------
@@ -206,7 +206,7 @@ namespace Winslow
                                                dof_handler);
       TrilinosWrappers::MPI::Vector x_tmp (locally_owned_dofs, mpi_communicator);
       TrilinosWrappers::MPI::Vector y_tmp (locally_owned_dofs, mpi_communicator);
-      
+
       // support_points contains locally relevant dofs.
       // Copy only locally owned values.
       for(IndexSet::ElementIterator
@@ -218,16 +218,16 @@ namespace Winslow
          x_tmp (*dof) = p[0];
          y_tmp (*dof) = p[1];
       }
-      
+
       x     = x_tmp;
       y     = y_tmp;
       x_old = x_tmp;
       y_old = y_tmp;
-      
+
       ax = 0;
       ay = 0;
    }
-   
+
    //------------------------------------------------------------------------------
    template <int dim>
    void Winslow<dim>::map_boundary_values()
@@ -235,7 +235,7 @@ namespace Winslow
       pcout << "Creating boundary condition list\n";
       const unsigned int dofs_per_face = fe.dofs_per_face;
       std::vector<types::global_dof_index> dof_indices(dofs_per_face);
-      
+
       for(typename DoFHandler<dim>::active_cell_iterator
           cell = dof_handler.begin_active(),
           endc = dof_handler.end();
@@ -259,44 +259,45 @@ namespace Winslow
                   }
                }
          }
-      
+
       // set all boundaries to be flat
       static const FlatManifold<dim> flat_boundary;
       triangulation->set_all_manifold_ids_on_boundary(0);
       triangulation->set_manifold (0, flat_boundary);
-      
+
       // save boundary points to file
       unsigned int n = boundary_values_x.size();
       n = Utilities::MPI::sum (n, mpi_communicator);
       pcout << "Number of boundary dofs = " << n << std::endl;
-      
+
       add_dirichlet_constraints (boundary_values_x, constraints_x); constraints_x.close();
       add_dirichlet_constraints (boundary_values_y, constraints_y); constraints_y.close();
    }
-   
+
    //------------------------------------------------------------------------------
    // Save the Qk mesh and boundary points for visualization
-   // Saved only if running with one processor
+   // Saved only if running with one processor and in 2d
    //------------------------------------------------------------------------------
-   template <int dim>
-   void Winslow<dim>::output_grids()
+   template <>
+   void Winslow<2>::output_grids()
    {
+      constexpr int dim = 2;
       if(Utilities::MPI::n_mpi_processes(mpi_communicator) > 1) return;
 
       pcout << "Saving grid for visualization\n";
-      
+
       QTrapezoid<dim-1> trapezoidal_rule;
       QIterated<dim-1> quadrature (trapezoidal_rule, fe.degree+1);
       unsigned int n_face_q_points = quadrature.size();
       FEFaceValues<dim> fe_face_values (fe, quadrature, update_values);
       std::vector<double> x_values(n_face_q_points);
       std::vector<double> y_values(n_face_q_points);
-      
+
       std::ofstream bdpts ("bd.gnu");
       std::ofstream gridq ("gridqk.gnu");
       pcout << "Boundary points saved into bd.gnu\n";
       pcout << "High order grid saved into gridqk.gnu\n";
-      
+
       for(typename DoFHandler<dim>::active_cell_iterator
           cell = dof_handler.begin_active(),
           endc = dof_handler.end();
@@ -318,11 +319,11 @@ namespace Winslow
             }
          }
       }
-      
+
       bdpts.close();
       gridq.close();
    }
-   
+
    //------------------------------------------------------------------------------
    // Assemble the rhs in the alpha equations
    //------------------------------------------------------------------------------
@@ -331,7 +332,7 @@ namespace Winslow
    {
       rhs_ax        = 0;
       rhs_ay        = 0;
-      
+
       // Needed for cell assembly
       FEValues<dim> fe_values (fe, cell_quadrature,
                                update_gradients | update_JxW_values);
@@ -340,10 +341,10 @@ namespace Winslow
       Vector<double>  cell_rhs_ax (dofs_per_cell);
       Vector<double>  cell_rhs_ay (dofs_per_cell);
       std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
-      
+
       std::vector<Tensor<1,dim>> Dx_values (n_q_points, Tensor<1,dim>());
       std::vector<Tensor<1,dim>> Dy_values (n_q_points, Tensor<1,dim>());
-      
+
       // Needed for face assembly
       FEFaceValues<dim> fe_face_values (fe, face_quadrature,
                                         update_values |
@@ -353,7 +354,7 @@ namespace Winslow
       const unsigned int   n_face_q_points    = face_quadrature.size();
       std::vector<Tensor<1,dim>> Dx_face_values (n_face_q_points, Tensor<1,dim>());
       std::vector<Tensor<1,dim>> Dy_face_values (n_face_q_points, Tensor<1,dim>());
-      
+
       for(typename DoFHandler<dim>::active_cell_iterator
           cell = dof_handler.begin_active(),
           endc = dof_handler.end();
@@ -362,18 +363,18 @@ namespace Winslow
          {
             cell_rhs_ax = 0;
             cell_rhs_ay = 0;
-            
+
             fe_values.reinit (cell);
-            
+
             fe_values.get_function_gradients (x, Dx_values);
             fe_values.get_function_gradients (y, Dy_values);
-            
+
             for(unsigned int q=0; q<n_q_points; ++q)
             {
                Tensor<2,dim> g;
                g_matrix (Dx_values[q], Dy_values[q], g);
                const Tensor<2,dim> gi = ginvert(g);
-               
+
                for(unsigned int i=0; i<dofs_per_cell; ++i)
                {
                   cell_rhs_ax(i) += (gi[0][0] * fe_values.shape_grad(i,q)[0] +
@@ -382,7 +383,7 @@ namespace Winslow
                                      gi[1][1] * fe_values.shape_grad(i,q)[1]) * fe_values.JxW(q);
                }
             }
-            
+
             // Boundary terms
             for (unsigned int f=0; f<GeometryInfo<dim>::faces_per_cell; ++f)
                if (cell->face(f)->at_boundary())
@@ -390,13 +391,13 @@ namespace Winslow
                   fe_face_values.reinit(cell, f);
                   fe_face_values.get_function_gradients (x, Dx_face_values);
                   fe_face_values.get_function_gradients (y, Dy_face_values);
-                  
+
                   for(unsigned int q=0; q<n_face_q_points; ++q)
                   {
                      Tensor<2,dim> g;
                      g_matrix (Dx_face_values[q], Dy_face_values[q], g);
                      const Tensor<2,dim> gi = ginvert(g);
-                     
+
                      for(unsigned int i=0; i<dofs_per_cell; ++i)
                      {
                         cell_rhs_ax(i) -= (  gi[0][0]*fe_face_values.normal_vector(q)[0]
@@ -408,17 +409,17 @@ namespace Winslow
                      }
                   }
                }
-            
+
             // Add cell rhs to global vector
             cell->get_dof_indices(local_dof_indices);
             constraints.distribute_local_to_global (cell_rhs_ax, local_dof_indices, rhs_ax);
             constraints.distribute_local_to_global (cell_rhs_ay, local_dof_indices, rhs_ay);
          }
-      
+
       rhs_ax.compress (VectorOperation::add);
       rhs_ay.compress (VectorOperation::add);
    }
-   
+
    //------------------------------------------------------------------------------
    // Solve for alpha, currently only direct solver with MUMPS
    //------------------------------------------------------------------------------
@@ -427,7 +428,7 @@ namespace Winslow
    {
       static TrilinosWrappers::SolverDirect::AdditionalData data (false, "Amesos_Mumps");
       static SolverControl solver_control (1, 0);
-      
+
       // If it is first time, compute LU decomposition
       if(!mumps_solver)
       {
@@ -436,7 +437,7 @@ namespace Winslow
                         (new TrilinosWrappers::SolverDirect(solver_control, data));
          mumps_solver->initialize (mass_matrix);
       }
-      
+
       // solve for ax
       {
          TrilinosWrappers::MPI::Vector tmp (locally_owned_dofs, mpi_communicator);
@@ -444,7 +445,7 @@ namespace Winslow
          constraints.distribute (tmp);
          ax = tmp;
       }
-      
+
       // solve for ay
       {
          TrilinosWrappers::MPI::Vector tmp (locally_owned_dofs, mpi_communicator);
@@ -453,7 +454,7 @@ namespace Winslow
          ay = tmp;
       }
    }
-   
+
    //------------------------------------------------------------------------------
    template <int dim>
    void Winslow<dim>::assemble_system_matrix_rhs ()
@@ -462,7 +463,7 @@ namespace Winslow
       system_matrix_y = 0;
       rhs_x           = 0;
       rhs_y           = 0;
-      
+
       FEValues<dim> fe_values (fe, cell_quadrature,
                                update_values | update_gradients | update_JxW_values);
       const unsigned int   dofs_per_cell = fe.dofs_per_cell;
@@ -470,12 +471,12 @@ namespace Winslow
       FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
       Vector<double>       cell_rhs_x(dofs_per_cell), cell_rhs_y(dofs_per_cell);
       std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
-      
+
       std::vector<double> ax_values (n_q_points);
       std::vector<double> ay_values (n_q_points);
       std::vector<Tensor<1,dim>> Dx_values (n_q_points, Tensor<1,dim>());
       std::vector<Tensor<1,dim>> Dy_values (n_q_points, Tensor<1,dim>());
-      
+
       for(typename DoFHandler<dim>::active_cell_iterator
           cell = dof_handler.begin_active(),
           endc = dof_handler.end();
@@ -485,20 +486,20 @@ namespace Winslow
             cell_matrix = 0;
             cell_rhs_x = 0;
             cell_rhs_y = 0;
-            
+
             fe_values.reinit (cell);
-            
+
             fe_values.get_function_values (ax, ax_values);
             fe_values.get_function_values (ay, ay_values);
             fe_values.get_function_gradients (x, Dx_values);
             fe_values.get_function_gradients (y, Dy_values);
-            
+
             for(unsigned int q=0; q<n_q_points; ++q)
             {
                Tensor<2,dim> g;
                g_matrix (Dx_values[q], Dy_values[q], g);
                const Tensor<2,dim> gi = ginvert(g);
-               
+
                for(unsigned int i=0; i<dofs_per_cell; ++i)
                {
                   for(unsigned int j=0; j<dofs_per_cell; ++j)
@@ -511,7 +512,7 @@ namespace Winslow
                   }
                }
             }
-            
+
             // Add cell_matrix to system_matrix
             cell->get_dof_indices(local_dof_indices);
             constraints_x.distribute_local_to_global(cell_matrix,
@@ -525,13 +526,13 @@ namespace Winslow
                                                      system_matrix_y,
                                                      rhs_y);
          }
-      
+
       rhs_x.compress (VectorOperation::add);
       rhs_y.compress (VectorOperation::add);
       system_matrix_x.compress (VectorOperation::add);
       system_matrix_y.compress (VectorOperation::add);
    }
-   
+
    //------------------------------------------------------------------------------
    template <int dim>
    void Winslow<dim>::solve_xy ()
@@ -547,7 +548,7 @@ namespace Winslow
          constraints_x.distribute (tmp);
          x = tmp;
       }
-      
+
       // solve for y
       {
          TrilinosWrappers::MPI::Vector tmp (locally_owned_dofs, mpi_communicator);
@@ -557,7 +558,7 @@ namespace Winslow
          y = tmp;
       }
    }
-   
+
    //------------------------------------------------------------------------------
    template <int dim>
    double Winslow<dim>::compute_change ()
@@ -567,22 +568,22 @@ namespace Winslow
       dx -= x_old;
       double res_norm_x = dx.l2_norm();
       res_norm_x = std::sqrt( std::pow(res_norm_x,2) / dx.size() );
-      
+
       TrilinosWrappers::MPI::Vector dy (locally_owned_dofs, mpi_communicator);
       dy  = y;
       dy -= y_old;
       double res_norm_y = dy.l2_norm();
       res_norm_y = std::sqrt( std::pow(res_norm_y,2) / dy.size() );
-      
+
       return res_norm_x + res_norm_y;
    }
-   
+
    //------------------------------------------------------------------------------
    template <int dim>
    void Winslow<dim>::output ()
    {
       static int count = 0;
-      
+
       DataOut<dim> data_out;
       data_out.attach_dof_handler (dof_handler);
       data_out.add_data_vector(x, "x");
@@ -590,14 +591,14 @@ namespace Winslow
       data_out.add_data_vector(ax, "ax");
       data_out.add_data_vector(ay, "ay");
       data_out.build_patches (fe.degree);
-      
+
       std::string filename = "sol-" + Utilities::int_to_string(count, 2) + ".vtk";
       std::ofstream output (filename.c_str());
       data_out.write_vtk (output);
-      
+
       ++count;
    }
-   
+
    //------------------------------------------------------------------------------
    template <int dim>
    void Winslow<dim>::fill_euler_vector (DoFHandler<dim>               &dh_euler,
@@ -607,7 +608,7 @@ namespace Winslow
       unsigned int dofs_per_cell_euler = dh_euler.get_fe().dofs_per_cell;
       std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
       std::vector<types::global_dof_index> euler_dof_indices (dofs_per_cell_euler);
-      
+
       for(typename DoFHandler<dim>::active_cell_iterator
           cell = dof_handler.begin_active(),
           endc = dof_handler.end();
@@ -621,7 +622,7 @@ namespace Winslow
                         &dh_euler);
             cell->get_dof_indices (local_dof_indices);
             euler_cell->get_dof_indices (euler_dof_indices);
-            
+
             for(unsigned int i=0; i<dofs_per_cell_euler; ++i)
             {
                unsigned int comp_i = dh_euler.get_fe().system_to_component_index(i).first;
@@ -642,7 +643,7 @@ namespace Winslow
             }
          }
    }
-   
+
    //------------------------------------------------------------------------------
    template <int dim>
    void Winslow<dim>::run(DoFHandler<dim>               &dh_euler,
@@ -655,7 +656,7 @@ namespace Winslow
       assemble_mass_matrix ();
 
       //output ();
-      
+
       // start Picard iteration
       const double RESTOL = 1.0e-12;
       double res_norm = RESTOL + 1;
@@ -668,7 +669,7 @@ namespace Winslow
          // solve x, y
          assemble_system_matrix_rhs ();
          solve_xy ();
-         
+
          res_norm = compute_change ();
          ++iter;
          pcout << iter << "  " << res_norm << std::endl;
@@ -676,7 +677,7 @@ namespace Winslow
          y_old = y;
          //output ();
       }
-      
+
       if(res_norm > RESTOL)
       {
          pcout << "****************************************\n";
@@ -684,12 +685,13 @@ namespace Winslow
          pcout << "****************************************\n";
       }
 
-      output_grids ();
+      if constexpr(dim == 2) output_grids ();
       fill_euler_vector (dh_euler, euler_vector);
    }
-   
-   
+
+
 } // end of namespace Winslow
 
 // Instantiations
 template class Winslow::Winslow<2>;
+template class Winslow::Winslow<3>;
