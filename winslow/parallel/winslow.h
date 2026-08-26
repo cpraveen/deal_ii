@@ -145,11 +145,11 @@ namespace Winslow
       const IndexSet& locally_owned_dofs = dh_euler.locally_owned_dofs ();
       IndexSet locally_relevant_dofs = DoFTools::extract_locally_relevant_dofs (dh_euler);
       TrilinosWrappers::MPI::Vector distributed_euler_vector (locally_owned_dofs,
-                                                              triangulation.get_communicator());
+                                                              triangulation.get_mpi_communicator());
 
       Winslow<dim> winslow (degree, triangulation);
       winslow.run (dh_euler, distributed_euler_vector);
-      euler_vector.reinit (locally_relevant_dofs, triangulation.get_communicator());
+      euler_vector.reinit (locally_relevant_dofs, triangulation.get_mpi_communicator());
       euler_vector = distributed_euler_vector;
    }
 
